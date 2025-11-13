@@ -32,7 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
         checkButton.disabled = false;
 
         if (activeGrammarData.length === 0) {
-            viSentenceEl.textContent = "No data to practice. Please upload a Word file on the homepage.";
+            viSentenceEl.textContent = "Không có dữ liệu để luyện tập. Vui lòng tải file Word ở trang chủ.";
             return;
         }
 
@@ -80,9 +80,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const correctAnswer = currentExample.jp.replace(/\s/g, '');
 
         if (userAnswer === correctAnswer) {
-            resultMessageEl.innerHTML = `<span style="color: green;">Chính xác!</span><br>Câu đúng là: <strong>${currentExample.jp}</strong>`;
+            resultMessageEl.innerHTML = `<span style="color: green;">Correct!</span><br>The correct sentence is: <strong>${currentExample.jp}</strong>`;
         } else {
-            resultMessageEl.innerHTML = `<span style="color: red;">Chưa đúng!</span><br>Câu đúng là: <strong>${currentExample.jp}</strong>`;
+            resultMessageEl.innerHTML = `<span style="color: red;">Incorrect!</span><br>The correct sentence is: <strong>${currentExample.jp}</strong>`;
         }
         checkButton.disabled = true;
     }

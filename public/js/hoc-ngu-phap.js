@@ -1,40 +1,40 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // Lấy các element DOM
+    // Get DOM elements
     const modeRadios = document.querySelectorAll('input[name="game-mode"]');
     const resetButton = document.getElementById('reset-button');
 
-    // Containers cho 2 chế độ
+    // Containers for the 2 modes
     const pairMatchContainer = document.getElementById('pair-match-container');
     const multipleChoiceContainer = document.getElementById('multiple-choice-container');
-    const cardBoard = document.getElementById('card-board'); // Cho chế độ ghép cặp
-    const questionArea = document.getElementById('question-area'); // Cho chế độ trắc nghiệm
-    const answersArea = document.getElementById('answers-area'); // Cho chế độ trắc nghiệm
+    const cardBoard = document.getElementById('card-board'); // For pair matching mode
+    const questionArea = document.getElementById('question-area'); // For multiple choice mode
+    const answersArea = document.getElementById('answers-area'); // For multiple choice mode
     const hideCorrectCheckbox = document.getElementById('hide-correct-pairs-checkbox');
     const selectionBubble = document.getElementById('selection-bubble');
     const mcProgressBar = document.getElementById('mc-progress-bar');
     const pairMatchProgress = document.getElementById('pair-match-progress');
     const completionPopup = document.getElementById('completion-message-popup');
 
-    // Biến trạng thái chung
+    // General state variables
     let activeGrammarData = [];
     let currentMode = 'pair-match';
 
-    // Biến cho chế độ ghép cặp
+    // Variables for pair matching mode
     let selectedStructure = null;
     let selectedMeaning = null;
     let totalPairs = 0;
     let correctPairs = 0;
 
     const PAIR_MATCH_STATE_KEY = "pairMatchGameState";
-    // Biến cho thống kê
+    // Variable for statistics
     const STATS_KEY = "grammarStats";
     let grammarStats = {};
 
-    // Biến cho trạng thái học
+    // Variable for learning status
     const LEARNING_STATUS_KEY = "learningStatus";
     let learningStatus = {};
 
-    // Tải dữ liệu từ localStorage hoặc dùng dữ liệu mẫu
+    // Load data from localStorage or use sample data
     async function loadData() {
         const STORAGE_KEY = "jlptGrammarData";
         try {
@@ -42,30 +42,30 @@ document.addEventListener('DOMContentLoaded', () => {
             if (storedData) {
                 activeGrammarData = JSON.parse(storedData);
             } else {
-                activeGrammarData = [...grammarData]; // Dùng dữ liệu mặc định
+                activeGrammarData = [...grammarData]; // Use default data
             }
         } catch (e) {
-            activeGrammarData = [...grammarData]; // Dùng dữ liệu mặc định khi lỗi
+            activeGrammarData = [...grammarData]; // Use default data on error
         }
 
-        // Tải dữ liệu thống kê
+        // Load statistics data
         try {
             const storedStats = localStorage.getItem(STATS_KEY);
             if (storedStats) grammarStats = JSON.parse(storedStats);
         } catch (e) {
-            console.error("Lỗi khi tải thống kê:", e);
+            console.error("Error loading stats:", e);
         }
 
-        // Tải dữ liệu trạng thái học
+        // Load learning status data
         try {
             const storedLearningStatus = localStorage.getItem(LEARNING_STATUS_KEY);
             if (storedLearningStatus) learningStatus = JSON.parse(storedLearningStatus);
         } catch (e) {
-            console.error("Lỗi khi tải trạng thái học:", e);
+            console.error("Error loading learning status:", e);
         }
     }
 
-    // Hàm xáo trộn mảng
+    // Function to shuffle an array
     function shuffle(array) {
         for (let i = array.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
@@ -75,22 +75,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // =================================================
-    // CHẾ ĐỘ 1: GHÉP CẶP (PAIR MATCHING)
+    // MODE 1: PAIR MATCHING
     // =================================================
 
     function setupPairMatchingGame() {
-        // Kiểm tra xem có game nào được lưu không
+        // Check if there is a saved game
         const savedStateJSON = localStorage.getItem(PAIR_MATCH_STATE_KEY);
         if (savedStateJSON) {
             try {
-                if (confirm('Tìm thấy một phiên ghép cặp đang dang dở. Bạn có muốn tiếp tục không?')) {
+                if (confirm('An unfinished pair matching session was found. Do you want to continue?')) {
                     loadPairMatchingFromState(JSON.parse(savedStateJSON));
-                    return; // Thoát sau khi tải trạng thái
+                    return; // Exit after loading state
                 }
             } catch (e) {
-                console.error("Lỗi khi đọc trạng thái game đã lưu:", e);
+                console.error("Error reading saved game state:", e);
             }
-            // Nếu người dùng không muốn tiếp tục hoặc có lỗi, xóa trạng thái đã lưu
+            // If the user doesn't want to continue or there's an error, clear the saved state
             localStorage.removeItem(PAIR_MATCH_STATE_KEY);
         }
         cardBoard.innerHTML = '';
@@ -107,7 +107,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const allCardsData = shuffle([...structures, ...meanings]);
         allCardsData.forEach(itemData => createPairCard(itemData, cardBoard));
 
-        // Cập nhật bộ đếm tiến độ
+        // Update the progress counter
         updateProgressCounter();
     }
 
@@ -138,11 +138,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function createPairCard(item, board) {
-        // Tạo thẻ div đơn giản
+        // Create a simple div card
         const card = document.createElement('div');
         card.classList.add('card');
-        card.dataset.id = item.id; // id của cấu trúc ngữ pháp
-        card.dataset.type = item.type; // 'structure' hoặc 'meaning'
+        card.dataset.id = item.id; // id of the grammar structure
+        card.dataset.type = item.type; // 'structure' or 'meaning'
         card.textContent = item.text;
         card.addEventListener('click', () => onPairCardClick(card));
         board.appendChild(card);
@@ -151,7 +151,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function onPairCardClick(card) {
         if (card.classList.contains('correct')) return;
 
-        // Hiển thị bong bóng với nội dung thẻ được chọn
+        // Show a bubble with the content of the selected card
         showSelectionBubble(card.textContent);
 
         if (card.dataset.type === 'structure') {
@@ -164,7 +164,7 @@ document.addEventListener('DOMContentLoaded', () => {
             card.classList.add('selected');
         }
 
-        // Kiểm tra nếu đã chọn đủ 1 cặp
+        // Check if a pair has been selected
         if (selectedStructure && selectedMeaning) {
             checkPairMatch();
         }
@@ -177,49 +177,49 @@ document.addEventListener('DOMContentLoaded', () => {
         const isCorrect = structCard.dataset.id === meanCard.dataset.id;
         updateStats(structCard.dataset.id, isCorrect);
 
-        // Bỏ chọn để chuẩn bị cho lần click tiếp theo
+        // Deselect to prepare for the next click
         selectedStructure = null;
         selectedMeaning = null;
-        // Xóa class 'selected' khỏi cả hai thẻ
+        // Remove 'selected' class from both cards
         structCard.classList.remove('selected');
         meanCard.classList.remove('selected');
 
-        // Ẩn bong bóng sau khi kiểm tra
+        // Hide the bubble after checking
         hideSelectionBubble();
 
         if (structCard.dataset.id === meanCard.dataset.id) {
-            // Ghép đúng
+            // Correct match
             structCard.classList.add('correct');
             meanCard.classList.add('correct');
             correctPairs++;
             updateProgressCounter();
 
             if (hideCorrectCheckbox.checked) {
-                // Thêm hiệu ứng vỡ bong bóng
+                // Add a bursting effect
                 structCard.classList.add('burst');
                 meanCard.classList.add('burst');
                 setTimeout(() => {
                     structCard.classList.add('hidden'); meanCard.classList.add('hidden');
-                }, 400); // Thời gian khớp với animation
+                }, 400); // Time should match the animation duration
             }
 
             if (correctPairs === totalPairs) {
                 showCompletionPopup();
-                localStorage.removeItem(PAIR_MATCH_STATE_KEY); // Xóa trạng thái khi hoàn thành
+                localStorage.removeItem(PAIR_MATCH_STATE_KEY); // Clear state upon completion
             }
         } else {
-            // Ghép sai
-            structCard.classList.add('incorrect'); // Lật sang màu đỏ
+            // Incorrect match
+            structCard.classList.add('incorrect'); // Turn red
             meanCard.classList.add('incorrect');
-            savePairMatchingState(); // Lưu trạng thái sau khi ghép đúng
+            savePairMatchingState(); // Save state after a correct match
 
-            // Nếu mục này đã "học" thì chuyển thành "ôn lại"
+            // If this item was "learned", change it to "review"
             if (learningStatus[structCard.dataset.id] === 'learned') {
                 learningStatus[structCard.dataset.id] = 'review';
                 localStorage.setItem(LEARNING_STATUS_KEY, JSON.stringify(learningStatus));
             }
             setTimeout(() => {
-                // Lật trở lại trạng thái ban đầu
+                // Revert to the initial state
                 structCard.classList.remove('incorrect');
                 meanCard.classList.remove('incorrect');
             }, 500);
@@ -242,7 +242,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // =================================================
-    // CHẾ ĐỘ 2: TRẮC NGHIỆM (MULTIPLE CHOICE)
+    // MODE 2: MULTIPLE CHOICE
     // =================================================
 
     let questionQueue = [];
@@ -252,7 +252,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function setupMultipleChoiceGame() {
         questionQueue = shuffle([...activeGrammarData]);
         mcTotalQuestions = questionQueue.length;
-        hideSelectionBubble(); // Ẩn bong bóng khi chuyển chế độ
+        hideSelectionBubble(); // Hide bubble when switching modes
         loadNextQuestion();
     }
 
@@ -262,23 +262,23 @@ document.addEventListener('DOMContentLoaded', () => {
         updateMCProgressBar();
 
         if (questionQueue.length === 0) {
-            questionArea.innerHTML = `<p class="completion-message">Chúc mừng! Bạn đã hoàn thành tất cả các câu hỏi!</p>`;
-            hideSelectionBubble(); // Ẩn bong bóng khi kết thúc
+            questionArea.innerHTML = `<p class="completion-message">Congratulations! You have completed all the questions!</p>`;
+            hideSelectionBubble(); // Hide bubble at the end
             return;
         }
 
         currentQuestion = questionQueue.shift();
 
-        // Tạo thẻ câu hỏi
-        showSelectionBubble(currentQuestion.structure); // Hiển thị câu hỏi trong bong bóng
+        // Create the question card
+        showSelectionBubble(currentQuestion.structure); // Show the question in the bubble
 
         const questionCard = document.createElement('div');
         questionCard.className = 'card question-card';
         questionCard.textContent = currentQuestion.structure;
-        questionArea.innerHTML = '<h3>Chọn ý nghĩa đúng:</h3>';
+        questionArea.innerHTML = '<h3>Choose the correct meaning:</h3>';
         questionArea.appendChild(questionCard);
 
-        // Tạo các thẻ đáp án
+        // Create the answer cards
         const answerOptions = shuffle([...activeGrammarData]);
         answerOptions.forEach(option => {
             const answerCard = document.createElement('div');
@@ -294,11 +294,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const isCorrect = selectedCard.dataset.id == currentQuestion.id;
         updateStats(currentQuestion.id, isCorrect);
 
-        // Vô hiệu hóa các thẻ khác
+        // Disable other cards
         document.querySelectorAll('.answer-card').forEach(card => {
             card.style.pointerEvents = 'none';
             if (card.dataset.id == currentQuestion.id) {
-                card.classList.add('correct'); // Luôn tô xanh đáp án đúng
+                card.classList.add('correct'); // Always highlight the correct answer in green
             }
         });
 
@@ -306,7 +306,7 @@ document.addEventListener('DOMContentLoaded', () => {
             selectedCard.classList.add('incorrect');
         }
 
-        setTimeout(loadNextQuestion, 1500); // Chờ 1.5s rồi sang câu tiếp
+        setTimeout(loadNextQuestion, 1500); // Wait 1.5s then load the next question
     }
 
     function updateStats(grammarId, isCorrect) {
@@ -341,33 +341,33 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateProgressCounter() {
-        pairMatchProgress.textContent = `Đã hoàn thành: ${correctPairs} / ${totalPairs}`;
+        pairMatchProgress.textContent = `Completed: ${correctPairs} / ${totalPairs}`;
     }
 
     function showCompletionPopup() {
-        completionPopup.textContent = 'Chúc mừng! Bạn đã hoàn thành!';
+        completionPopup.textContent = 'Congratulations! You have finished!';
         completionPopup.style.display = 'block';
         completionPopup.classList.remove('fade-out');
 
-        // Tự động ẩn sau 3 giây
+        // Automatically hide after 3 seconds
         setTimeout(() => {
             completionPopup.classList.add('fade-out');
-            // Chờ animation kết thúc rồi mới display: none
+            // Wait for the animation to finish before setting display to none
             setTimeout(() => { completionPopup.style.display = 'none'; }, 500);
         }, 3000);
     }
 
     // =================================================
-    // KHỞI TẠO VÀ ĐIỀU KHIỂN CHUNG
+    // GENERAL INITIALIZATION AND CONTROL
     // =================================================
 
     function setupGame() {
-        if (isGameInProgress() && !confirm('Bạn có chắc muốn bắt đầu lại? Tiến trình hiện tại sẽ bị mất.')) {
-            // Nếu người dùng hủy, khôi phục lại lựa chọn radio button về chế độ hiện tại
+        if (isGameInProgress() && !confirm('Are you sure you want to restart? Current progress will be lost.')) {
+            // If the user cancels, restore the radio button selection to the current mode
             document.querySelector(`input[name="game-mode"][value="${currentMode}"]`).checked = true;
             return;
         }
-        // Xóa trạng thái game ghép cặp đã lưu khi bắt đầu lại hoặc chuyển chế độ
+        // Clear the saved pair-matching game state when restarting or switching modes
         localStorage.removeItem(PAIR_MATCH_STATE_KEY);
         if (currentMode === 'pair-match') {
             pairMatchContainer.style.display = 'block';
@@ -380,7 +380,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Hàm kiểm tra xem game có đang diễn ra không
+    // Function to check if a game is in progress
     function isGameInProgress() {
         return currentMode === 'pair-match' && correctPairs > 0 && correctPairs < totalPairs;
     }
@@ -407,22 +407,22 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Tải dữ liệu và bắt đầu game lần đầu
+    // Load data and start the game for the first time
     loadData().then(() => {
         setupGame();
     });
 
 
-    // Bây giờ game đã được lưu, không cần cảnh báo nữa.
-    // Thay vào đó, ta sẽ lưu trạng thái khi người dùng rời đi.
+    // The game state is now saved, so no warning is needed.
+    // Instead, we will save the state when the user leaves.
     window.addEventListener('beforeunload', (event) => {
         savePairMatchingState();
     });
 
-    // --- Logic cho nút cuộn lên đầu trang ---
+    // --- Logic for the scroll-to-top button ---
     const scrollToTopBtn = document.getElementById("scroll-to-top-btn");
 
-    // Hiển thị nút khi cuộn xuống 200px
+    // Show the button when scrolling down 200px
     window.onscroll = function() {
         if (document.body.scrollTop > 200 || document.documentElement.scrollTop > 200) {
             scrollToTopBtn.style.display = "block";
@@ -431,7 +431,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // Cuộn lên đầu khi nhấp vào nút
+    // Scroll to the top when the button is clicked
     scrollToTopBtn.addEventListener("click", function() {
         window.scrollTo({top: 0, behavior: 'smooth'});
     });

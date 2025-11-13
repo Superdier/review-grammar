@@ -1,50 +1,50 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="en">
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Học Ngữ pháp - Flashcard</title>
+    <title>Learn Grammar - Flashcard</title>
     <link rel="stylesheet" href="css/style.css">
   </head>
   <body>
     <div class="container">
       <header>
-        <h1>Học Ngữ pháp (Ghép cặp)</h1>
+        <h1>Learn Grammar (Pair Match)</h1>
       </header>
       <nav>
-        <a href="index.html">Trang chủ</a>
-        <a href="hoc-ngu-phap.html">Học Ngữ pháp</a>
-        <a href="luyen-tap-vi-du.html">Luyện tập Ví dụ</a>
+        <a href="index.html">Home</a>
+        <a href="hoc-ngu-phap.html">Learn Grammar</a>
+        <a href="luyen-tap-vi-du.html">Practice Examples</a>
       </nav>
       <main>
-        <!-- Bong bóng hiển thị thẻ đang được chọn -->
+        <!-- Bubble to display the selected card -->
         <div id="selection-bubble" class="selection-bubble"></div>
-        <!-- Pop-up thông báo hoàn thành -->
+        <!-- Pop-up for completion message -->
         <div id="completion-message-popup" class="completion-popup"></div>
 
         <div class="mode-selection">
-          <strong>Chọn chế độ học:</strong>
+          <strong>Select learning mode:</strong>
           <label><input type="radio" name="game-mode" value="pair-match"
-              checked> Ghép cặp ngẫu nhiên</label>
+              checked> Random Pair Match</label>
           <label><input type="radio" name="game-mode" value="multiple-choice">
-            Trắc nghiệm</label>
+            Multiple Choice</label>
         </div>
 
-        <!-- Chế độ 1: Ghép cặp -->
+        <!-- Mode 1: Pair Match -->
         <div id="pair-match-container">
-          <p>Click vào một cấu trúc và một ý nghĩa để ghép chúng lại với nhau.
-            Ghép đúng tất cả các cặp để hoàn thành.</p>
+          <p>Click on a structure and a meaning to match them.
+            Correctly match all pairs to complete.</p>
           <div id="pair-match-progress"></div>
           <div class="game-options">
-            <label><input type="checkbox" id="hide-correct-pairs-checkbox"> Ẩn
-              các cặp đã ghép đúng</label>
+            <label><input type="checkbox" id="hide-correct-pairs-checkbox"> Hide
+              correctly matched pairs</label>
           </div>
           <div class="flashcard-area" id="card-board">
-            <!-- Các thẻ ghép cặp sẽ được tạo ở đây -->
+            <!-- Matching cards will be generated here -->
           </div>
         </div>
 
-        <!-- Chế độ 2: Trắc nghiệm -->
+        <!-- Mode 2: Multiple Choice -->
         <div id="multiple-choice-container" style="display: none;">
           <div class="progress-bar-container">
             <div id="mc-progress-bar" class="progress-bar"></div>
@@ -53,15 +53,15 @@
           <div id="answers-area"></div>
         </div>
 
-        <button id="reset-button" style="margin-top: 20px;">Bắt đầu lại / Bộ
-          khác</button>
+        <button id="reset-button" style="margin-top: 20px;">Restart / New
+          Set</button>
       </main>
     </div>
 
     <script src="js/data.js"></script>
     <script src="js/hoc-ngu-phap.js"></script>
 
-    <!-- Nút cuộn lên đầu trang -->
-    <button id="scroll-to-top-btn" title="Lên đầu trang">↑</button>
+    <!-- Scroll to top button -->
+    <button id="scroll-to-top-btn" title="Go to top">↑</button>
   </body>
 </html>

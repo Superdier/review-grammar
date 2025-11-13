@@ -1,5 +1,5 @@
 import { db } from './firebase-init.js';
-import { collection, getDocs } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+import { collection, getDocs, writeBatch, doc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
 document.addEventListener("DOMContentLoaded", function () {
   // --- Lấy các phần tử DOM ---
   // Danh sách chính
@@ -44,7 +44,7 @@ document.addEventListener("DOMContentLoaded", function () {
   const qlStep3Match = document.getElementById('ql-step3-match');
   const qlStep4Fill = document.getElementById('ql-step4-fill');
 
-  // Nút cuộn lên đầu trang
+  // Scroll to top button
   const scrollToTopBtn = document.getElementById("scroll-to-top-btn");
 
   // Biến để lưu ID của ngữ pháp đang được xem/sửa
@@ -56,12 +56,12 @@ document.addEventListener("DOMContentLoaded", function () {
   const LEARNING_STATUS_KEY = "learningStatus";
   const DAILY_GOAL_KEY = "dailyGoal";
 
-  // Biến toàn cục để lưu trữ dữ liệu ngữ pháp
+  // Global variables for grammar data
   let appGrammarData = [];
   let grammarStats = {};
   let learningStatus = {};
   
-  // Biến toàn cục để lưu các ID đã học trong ngày, được khởi tạo ở đây
+  // Global variable to store IDs learned today, initialized here
   let learnedTodayIds = new Set();
 
   
@@ -77,27 +77,27 @@ document.addEventListener("DOMContentLoaded", function () {
 
       if (firebaseData.length > 0) {
         appGrammarData = firebaseData.sort((a, b) => a.id - b.id); // Sắp xếp theo ID
-        console.log("Đã tải dữ liệu từ Firebase.");
+        console.log("Loaded data from Firebase.");
       } else {
         // Không có dữ liệu trên Firebase, sử dụng dữ liệu từ data.js.
         appGrammarData = [...grammarData];
-        console.log("Không có dữ liệu trên Firebase. Đã tải dữ liệu mặc định.");
+        console.log("No data on Firebase. Loaded default data.");
       }
     } catch (e) {
-      console.error("Lỗi khi tải dữ liệu từ Firebase. Vui lòng kiểm tra kết nối và cấu hình.", e);
+      console.error("Error loading data from Firebase. Please check connection and configuration.", e);
       // Sử dụng dữ liệu mặc định từ data.js khi có lỗi.
       appGrammarData = [...grammarData];
-      console.log("Đã tải dữ liệu mặc định do không thể kết nối Firebase.");
+      console.log("Loaded default data due to Firebase connection failure.");
     }
 
-    // Tải dữ liệu thống kê và trạng thái học từ localStorage (có thể chuyển sang Firebase sau)
+    // Load stats and learning status from localStorage (can be moved to Firebase later)
     try {
       const storedStats = localStorage.getItem(STATS_STORAGE_KEY);
       if (storedStats) grammarStats = JSON.parse(storedStats);
       const storedLearningStatus = localStorage.getItem(LEARNING_STATUS_KEY);
       if (storedLearningStatus) learningStatus = JSON.parse(storedLearningStatus);
     } catch (e) {
-      console.error("Lỗi khi tải trạng thái học:", e);
+      console.error("Error loading learning status:", e);
     }
 
     // Tải và cập nhật mục tiêu hàng ngày
@@ -108,17 +108,17 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function renderGrammarList(data) {
-    grammarListUl.innerHTML = ""; // Xóa danh sách cũ
+    grammarListUl.innerHTML = ""; // Clear old list
     data.forEach((grammar) => {
       const li = document.createElement("li");
       const button = document.createElement("button");
-      button.textContent = "Xem chi tiết";
+      button.textContent = "View Details";
       button.onclick = () => showGrammarDetails(grammar.id);
 
       const status = learningStatus[grammar.id];
       let statusBadge = '';
-      if (status === 'learned') statusBadge = ' <span class="badge learned">Đã học</span>';
-      else if (status === 'review') statusBadge = ' <span class="badge review">Ôn lại</span>';
+      if (status === 'learned') statusBadge = ' <span class="badge learned">Learned</span>';
+      else if (status === 'review') statusBadge = ' <span class="badge review">Review</span>';
 
       li.innerHTML = `
                 <span><strong>${grammar.structure}</strong>: ${grammar.meaning}</span>${statusBadge}
@@ -149,21 +149,22 @@ document.addEventListener("DOMContentLoaded", function () {
             window.grammarData = appGrammarData;
             // Lưu vào localStorage để dùng cho lần sau
             localStorage.setItem(DATA_STORAGE_KEY, JSON.stringify(appGrammarData));
-            console.log("Đã lưu dữ liệu mới vào localStorage.");
+            console.log("Saved new data to localStorage. Starting sync to Firebase...");
 
             applyFiltersAndSort();
+            syncDataToFirebase(); // <-- GỌI HÀM ĐỒNG BỘ
             alert(
-              `Đã phân tích thành công ${parsedData.length} cấu trúc ngữ pháp từ file!`
+              `Successfully parsed ${parsedData.length} grammar structures from the file!`
             );
           } else {
             alert(
-              "Không tìm thấy cấu trúc ngữ pháp nào trong file hoặc định dạng không đúng."
+              "No grammar structures found in the file or the format is incorrect."
             );
           }
         })
         .catch((err) => {
           console.error(err);
-          alert("Đã có lỗi xảy ra khi đọc file Word.");
+          alert("An error occurred while reading the Word file.");
         });
     };
     reader.readAsArrayBuffer(file);
@@ -227,7 +228,7 @@ function parseWordText(text) {
       const meaning = firstLineMatch ? firstLineMatch[2].trim() : "";
 
       if (!structure || !meaning) {
-        console.warn(`⚠️ Không nhận diện được tiêu đề ở block ${index + 1}:`, lines[0]);
+        console.warn(`⚠️ Could not recognize the title in block ${index + 1}:`, lines[0]);
         continue;
       }
 
@@ -283,12 +284,50 @@ function parseWordText(text) {
         note,
       });
     } catch (e) {
-      console.error("❌ Lỗi khi phân tích khối:", e);
+      console.error("❌ Error parsing block:", e);
     }
   }
 
   return grammarArray;
 }
+
+  /**
+   * Đồng bộ toàn bộ dữ liệu appGrammarData lên Firebase.
+   * Hàm này sẽ XÓA TẤT CẢ dữ liệu cũ trên collection 'grammar' và ghi lại dữ liệu mới.
+   */
+  async function syncDataToFirebase() {
+    if (!appGrammarData || appGrammarData.length === 0) {
+      console.warn("No data to sync to Firebase.");
+      return;
+    }
+
+    console.log("Starting data sync process to Firebase...");
+    const grammarCollectionRef = collection(db, 'grammar');
+
+    try {
+      const batch = writeBatch(db);
+
+      // Bước 1: Lấy và xóa tất cả các document cũ
+      const oldDocsSnapshot = await getDocs(grammarCollectionRef);
+      oldDocsSnapshot.forEach(document => {
+        batch.delete(document.ref);
+      });
+
+      // Bước 2: Thêm tất cả các document mới từ appGrammarData
+      appGrammarData.forEach(grammarItem => {
+        const newDocRef = doc(grammarCollectionRef, String(grammarItem.id));
+        batch.set(newDocRef, grammarItem);
+      });
+
+      // Bước 3: Thực thi batch
+      await batch.commit();
+      console.log("✅ Successfully synced data to Firebase!");
+      alert("Successfully synced new data to Firebase!");
+    } catch (error) {
+      console.error("❌ Error syncing data to Firebase:", error);
+      alert("An error occurred while syncing data to Firebase. Please check the console log.");
+    }
+  }
 
   function showGrammarDetails(grammarId) {
     const grammar = appGrammarData.find((g) => g.id === grammarId);
@@ -326,13 +365,13 @@ function parseWordText(text) {
       const percentage = Math.round((stats.correct / stats.total) * 100);
       statsSpan.textContent = `${stats.correct}/${stats.total} (${percentage}%)`;
     } else {
-      statsSpan.textContent = "Chưa có thống kê.";
+      statsSpan.textContent = "No stats yet.";
     }
 
 
 
     document.getElementById("modal-note").textContent =
-      grammar.note || "Không có chú ý đặc biệt.";
+      grammar.note || "No special notes.";
 
     const examplesUl = document.getElementById("modal-examples");
     examplesUl.innerHTML = "";
@@ -369,7 +408,7 @@ function parseWordText(text) {
     const examplesText = document.getElementById("modal-edit-examples").value;
 
     if (!newStructure || !newMeaning) {
-      alert("Cấu trúc và Ý nghĩa là bắt buộc.");
+      alert("Structure and Meaning are required.");
       return;
     }
 
@@ -429,7 +468,7 @@ function parseWordText(text) {
   function deleteCurrentGrammar() {
     if (currentEditingId === null || currentEditingId === 'new') return;
 
-    if (confirm(`Bạn có chắc chắn muốn xóa cấu trúc ngữ pháp này không?`)) {
+    if (confirm(`Are you sure you want to delete this grammar structure?`)) {
       const grammarIndex = appGrammarData.findIndex(g => g.id === currentEditingId);
       if (grammarIndex > -1) {
         appGrammarData.splice(grammarIndex, 1);
@@ -520,9 +559,9 @@ function parseWordText(text) {
     if (filterValue !== 'all') {
       filteredData = filteredData.filter(g => {
         const status = learningStatus[g.id];
-        if (filterValue === 'learned') return status === 'learned';
-        if (filterValue === 'review') return status === 'review';
-        if (filterValue === 'unlearned') return !status;
+        if (filterValue === 'learned') return status === 'learned'; // Filter: Learned
+        if (filterValue === 'review') return status === 'review';   // Filter: Review
+        if (filterValue === 'unlearned') return !status;          // Filter: Unlearned
         return true;
       });
     }
@@ -552,7 +591,7 @@ function parseWordText(text) {
 
   function exportToJson() {
     if (appGrammarData.length === 0) {
-      alert("Không có dữ liệu để export.");
+      alert("No data to export.");
       return;
     }
     const jsonString = JSON.stringify(appGrammarData, null, 2);
@@ -578,19 +617,20 @@ function parseWordText(text) {
 
         // Kiểm tra sơ bộ dữ liệu
         if (Array.isArray(importedData) && importedData.length > 0 && importedData[0].structure && importedData[0].meaning) {
-          if (confirm(`Bạn có chắc muốn ghi đè dữ liệu hiện tại với ${importedData.length} cấu trúc ngữ pháp từ file?`)) {
+          if (confirm(`Are you sure you want to overwrite current data with ${importedData.length} grammar structures from the file?`)) {
             appGrammarData = importedData;
             window.grammarData = appGrammarData;
             localStorage.setItem(DATA_STORAGE_KEY, JSON.stringify(appGrammarData));
+            syncDataToFirebase(); // <-- GỌI HÀM ĐỒNG BỘ
             applyFiltersAndSort();
-            alert("Đã import dữ liệu thành công!");
+            alert("Data imported successfully!");
           }
         } else {
-          alert("Định dạng file JSON không hợp lệ. Vui lòng kiểm tra lại file.");
+          alert("Invalid JSON file format. Please check the file.");
         }
       } catch (error) {
         console.error("Lỗi khi phân tích file JSON:", error);
-        alert("Đã có lỗi xảy ra khi đọc file JSON. File có thể bị hỏng.");
+        alert("An error occurred while reading the JSON file. The file may be corrupted.");
       } finally {
         // Reset input để có thể chọn lại cùng một file
         event.target.value = null;
@@ -605,12 +645,12 @@ function parseWordText(text) {
   clearStorageButton.addEventListener("click", function () {
     if (
       confirm(
-        "Bạn có chắc chắn muốn xóa dữ liệu đã tải lên và quay về dữ liệu gốc không?"
+        "Are you sure you want to delete uploaded data and revert to the original data?"
       )
     ) {
       localStorage.removeItem(DATA_STORAGE_KEY);
       localStorage.removeItem(STATS_STORAGE_KEY); // Xóa cả thống kê
-      alert("Đã xóa dữ liệu. Trang sẽ được tải lại với dữ liệu gốc.");
+      alert("Data deleted. The page will be reloaded with the original data.");
       window.location.reload();
     }
   });
@@ -682,7 +722,7 @@ function parseWordText(text) {
             learnedTodayListDiv.appendChild(badge);
         });
     } else {
-        learnedTodayListDiv.innerHTML = '<span style="color: #888;">Chưa có ngữ pháp nào.</span>';
+        learnedTodayListDiv.innerHTML = '<span style="color: #888;">No grammar yet.</span>';
     }
   }
 
@@ -692,9 +732,9 @@ function parseWordText(text) {
     goalData.goal = newGoal;
     localStorage.setItem(DAILY_GOAL_KEY, JSON.stringify(goalData));
     updateDailyGoalProgress();
-    alert(`Đã cập nhật mục tiêu hàng ngày thành ${newGoal} ngữ pháp.`);
+    alert(`Daily goal updated to ${newGoal} grammar points.`);
   });
-  // =================================================
+  // ==================================================
   // LOGIC CHO QUICK LEARN
   // =================================================
   const QUICK_LEARN_DAILY_KEY = "quickLearnDailySelection";
@@ -750,7 +790,7 @@ function parseWordText(text) {
       });
 
       if (qlNewItems.length === 0 && learnedTodayItems.length > 0) {
-        alert("Bạn đã học hết ngữ pháp mới. Phiên này sẽ chỉ bao gồm các mục đã học trong ngày.");
+        alert("You have learned all new grammar points. This session will only include items learned today.");
       }
     } else {
       // Chế độ học mới: chỉ bao gồm các mục mới
@@ -758,7 +798,7 @@ function parseWordText(text) {
     }
 
     if (qlSessionData.length === 0) {
-        alert("Chúc mừng! Bạn đã học hết tất cả ngữ pháp mới. Hãy reset dữ liệu nếu muốn học lại.");
+        alert("Congratulations! You have learned all new grammar points. Reset the data if you want to learn again.");
         return;
     }
     
@@ -779,7 +819,7 @@ function parseWordText(text) {
     const completedItems = qlCurrentStep * qlSessionData.length + qlCurrentIndex;
     const percentage = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
     qlProgressBar.style.width = `${percentage}%`;
-    qlProgressBar.textContent = `Tiến độ: ${completedItems} / ${totalItems}`;
+    qlProgressBar.textContent = `Progress: ${completedItems} / ${totalItems}`;
   }
 
   function loadQuickLearnStep() {
@@ -804,10 +844,10 @@ function parseWordText(text) {
     const newItemsCount = qlNewItems.length;
     const totalSessionItemsCount = qlSessionData.length;
     const stepTitles = [
-        `Bước 1: Xem chi tiết (${qlCurrentIndex + 1}/${newItemsCount})`,
-        `Bước 2: Trắc nghiệm (${qlCurrentIndex + 1}/${newItemsCount})`,
-        `Bước 3: Ghép cặp`,
-        `Bước 4: Điền từ (${qlCurrentIndex + 1}/${totalSessionItemsCount})`
+        `Step 1: View Details (${qlCurrentIndex + 1}/${newItemsCount})`,
+        `Step 2: Multiple Choice (${qlCurrentIndex + 1}/${newItemsCount})`,
+        `Step 3: Pair Match`,
+        `Step 4: Fill in the Blank (${qlCurrentIndex + 1}/${totalSessionItemsCount})`
     ];
     qlStepTitle.textContent = stepTitles[qlCurrentStep];
 
@@ -816,15 +856,15 @@ function parseWordText(text) {
             qlStep1View.style.display = 'block';
             qlStep1View.innerHTML = `
                 <h3>${currentGrammar.structure}</h3>
-                <p><strong>Ý nghĩa:</strong> ${currentGrammar.meaning}</p>
-                <p><strong>Giải thích:</strong> ${currentGrammar.explanation}</p>
-                <p><strong>Ví dụ:</strong></p>
+                <p><strong>Meaning:</strong> ${currentGrammar.meaning}</p>
+                <p><strong>Explanation:</strong> ${currentGrammar.explanation}</p>
+                <p><strong>Examples:</strong></p>
                 <ul>${currentGrammar.examples.map(ex => `<li><div class="jp-example">${ex.jp}</div><div class="vi-example">${ex.vi}</div></li>`).join('')}</ul>
-                <p><strong>Chú ý:</strong> ${currentGrammar.note || 'Không có'}</p>
+                <p><strong>Note:</strong> ${currentGrammar.note || 'None'}</p>
             `;
             // Thêm nút Sửa
             const editBtn = document.createElement('button');
-            editBtn.textContent = 'Sửa chi tiết';
+            editBtn.textContent = 'Edit Details';
             editBtn.onclick = () => showGrammarDetails(currentGrammar.id);
             qlStep1View.appendChild(editBtn);
             break;
@@ -946,7 +986,7 @@ function parseWordText(text) {
                 // Tính và hiển thị độ tương đồng
                 const similarity = calculateSimilarity(userInput, mainAnswer);
                 const percentage = Math.round(similarity * 100);
-                statsSpan.textContent = `Độ khớp: ${percentage}%`;
+                statsSpan.textContent = `Match: ${percentage}%`;
 
 
                 const validAnswers = getValidAnswers(currentGrammar.structure);
@@ -1066,7 +1106,7 @@ function parseWordText(text) {
       localStorage.setItem(DAILY_GOAL_KEY, JSON.stringify(goalData));
       updateDailyGoalProgress();
 
-      alert(`Chúc mừng! Bạn đã hoàn thành buổi học nhanh.\nTổng số ngữ pháp đã học hôm nay: ${learnedTodayIds.size}.`);
+      alert(`Congratulations! You have completed the quick learn session.\nTotal grammar points learned today: ${learnedTodayIds.size}.`);
 
       localStorage.setItem(LEARNING_STATUS_KEY, JSON.stringify(learningStatus));
 
