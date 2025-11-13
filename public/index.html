@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ôn tập Ngữ pháp JLPT N2</title>
+    <link rel="stylesheet" href="css/style.css">
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>Hệ thống Ôn tập Ngữ pháp JLPT N2</h1>
+      </header>
+      <nav>
+        <a href="index.html">Trang chủ</a>
+        <a href="hoc-ngu-phap.html">Học Ngữ pháp</a>
+        <a href="luyen-tap-vi-du.html">Luyện tập Ví dụ</a>
+      </nav>
+      <main>
+        <section class="file-upload-section">
+          <h2>Tải lên file Word</h2>
+          <p>Chọn file Word chứa danh sách ngữ pháp N2 của bạn.</p>
+          <input type="file" id="word-file-input" accept=".doc,.docx">
+          <div class="data-management-buttons">
+            <button id="export-json-btn">Export ra JSON</button>
+            <label for="import-json-input" class="button-like-label">Import từ
+              JSON</label>
+            <input type="file" id="import-json-input" accept=".json"
+              style="display: none;">
+          </div>
+          <button id="clear-storage-button" class="danger-button">Xóa dữ liệu đã
+            lưu & Quay về gốc</button>
+          <p><small>(Chức năng này đang trong giai đoạn phát triển. Dữ liệu mẫu
+              đã được tải sẵn.)</small></p>
+        </section>
+
+        <section id="quick-learn-section">
+          <h2>Học nhanh ngữ pháp</h2>
+
+          <!-- Daily Goal Tracker -->
+          <div id="daily-goal-tracker"
+            style="margin-bottom: 1.5rem; padding: 1rem; background: #eef; border-radius: 5px;">
+            <h4>Mục tiêu hôm nay</h4>
+            <div
+              style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+              <label for="daily-goal-input">Học</label>
+              <input type="number" id="daily-goal-input" value="5" min="1"
+                max="20" style="width: 60px;">
+              <label for="daily-goal-input">ngữ pháp.</label>
+            </div>
+            <div id="daily-goal-progress-display">
+              <span>Tiến độ: <span id="learned-today-count">0</span> / <span
+                  id="daily-goal-target">5</span></span>
+              <div class="progress-bar-container" style="margin-top: 5px;">
+                <div id="daily-goal-progress-bar" class="progress-bar"
+                  style="background-color: #007bff;"></div>
+              </div>
+            </div>
+            <!-- Learned Today List -->
+            <div id="learned-today-list-container"
+              style="margin-top: 10px; font-size: 0.9em;">
+              <p style="margin-bottom: 5px; font-weight: bold;">Đã học hôm
+                nay:</p>
+              <div id="learned-today-list"
+                style="display: flex; flex-wrap: wrap; gap: 5px;"></div>
+            </div>
+          </div>
+
+          <p>Hệ thống sẽ chọn ngẫu nhiên các ngữ pháp bạn chưa học hoặc cần ôn
+            lại. Hoàn thành
+            4 bước để đánh dấu là "Đã học".</p>
+          <div class="quick-learn-settings">
+            <label for="quick-learn-count">Số lượng ngữ pháp mỗi phiên:</label>
+            <input type="number" id="quick-learn-count" class="form-control"
+              value="5" min="5" max="20" style="width: 80px;">
+          </div>
+
+          <button id="start-quick-learn-btn">Bắt đầu học nhanh</button>
+
+          <!-- Options for subsequent sessions -->
+          <div id="next-session-options"
+            style="display: none; margin-top: 1rem; padding: 1rem; border: 1px solid #ccc; border-radius: 5px;">
+            <h4>Học phiên tiếp theo</h4>
+            <div class="learn-mode-selection">
+              <label><input type="radio" name="learn-mode" value="new-only"
+                  checked> Chỉ học ngữ pháp mới</label>
+              <br>
+              <label><input type="radio" name="learn-mode"
+                  value="review-and-new"> Ôn tập ngữ pháp đã học & học
+                mới</label>
+            </div>
+            <button id="start-next-session-btn" style="margin-top: 10px;">Bắt
+              đầu phiên tiếp theo</button>
+          </div>
+
+          <div id="quick-learn-container" style="display: none;">
+            <div class="progress-bar-container">
+              <div id="quick-learn-progress-bar" class="progress-bar"></div>
+            </div>
+            <h3 id="quick-learn-step-title"></h3>
+
+            <!-- Step 1: View Details -->
+            <div id="ql-step1-view" class="ql-step-container">
+              <div id="ql-card-detail-view">
+                <!-- Content will be injected by JS -->
+              </div>
+            </div>
+
+            <!-- Step 2: Multiple Choice -->
+            <div id="ql-step2-mc" class="ql-step-container">
+              <p><strong>Ý nghĩa:</strong></p><p id="ql-mc-meaning"></p>
+              <div id="ql-mc-options"></div>
+            </div>
+
+            <!-- Step 3: Pair Match -->
+            <div id="ql-step3-match" class="ql-step-container">
+              <div id="ql-match-board" class="flashcard-area"></div>
+              <button id="ql-match-hint-btn" style="margin-top: 15px;">Gợi ý đáp
+                án</button>
+            </div>
+
+            <!-- Step 4: Fill Blank -->
+            <div id="ql-step4-fill" class="ql-step-container">
+              <p><strong>Ý nghĩa:</strong></p>
+              <p id="ql-fill-meaning"></p>
+              <input type="text" id="ql-fill-input" class="form-control"
+                placeholder="Nhập cấu trúc ngữ pháp...">
+              <span id="ql-fill-stats"
+                style="font-size: 0.9em; color: #666; margin-left: 10px;"></span>
+              <p id="ql-fill-result"></p>
+              <button id="ql-fill-hint-btn">Gợi ý</button>
+              <button id="ql-skip-btn">Bỏ qua & Xem ví dụ</button>
+            </div>
+
+            <button id="ql-next-btn" style="margin-top: 20px;">Tiếp
+              theo</button>
+          </div>
+        </section>
+
+        <section id="grammar-list">
+          <div class="list-header">
+            <h2>Danh sách Ngữ pháp</h2>
+            <div class="list-header-actions">
+              <select id="filter-status" class="form-control">
+                <option value="all">Lọc: Tất cả</option>
+                <option value="unlearned">Lọc: Chưa học</option>
+                <option value="learned">Lọc: Đã học</option>
+                <option value="review">Lọc: Ôn lại</option>
+              </select>
+              <select id="sort-options" class="form-control">
+                <option value="default">Sắp xếp: Mặc định</option>
+                <option value="az">Sắp xếp: A-Z</option>
+                <option value="za">Sắp xếp: Z-A</option>
+              </select>
+              <button id="add-new-grammar-btn" class="primary-button">Thêm
+                mới</button>
+            </div>
+          </div>
+          <ul id="grammar-ul">
+            <!-- Danh sách sẽ được tạo bằng JavaScript -->
+          </ul>
+        </section>
+      </main>
+    </div>
+
+    <!-- Modal Structure -->
+    <div id="grammar-modal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 id="modal-structure"></h2>
+          <span class="close-button">&times;</span>
+        </div>
+
+        <div class="modal-body">
+          <!-- Chế độ xem -->
+          <div id="modal-view-mode">
+            <p><strong>Ý nghĩa:</strong></p>
+            <p id="modal-meaning"></p>
+            <p><strong>Tỷ lệ ghép đúng:</strong> <span
+                id="modal-stats"></span></p>
+            <hr>
+            <p><strong>Giải thích:</strong></p>
+            <p id="modal-explanation"></p>
+            <p><strong>Ví dụ:</strong></p>
+            <ul id="modal-examples"></ul>
+            <p><strong>Chú ý:</strong></p>
+            <p id="modal-note"></p>
+          </div>
+
+          <!-- Chế độ sửa (ẩn mặc định) -->
+          <div id="modal-edit-mode" style="display: none;">
+            <div class="form-group">
+              <label for="modal-edit-structure">Cấu trúc:</label>
+              <input type="text" id="modal-edit-structure" class="form-control">
+            </div>
+            <div class="form-group">
+              <label for="modal-edit-meaning">Ý nghĩa:</label>
+              <input type="text" id="modal-edit-meaning" class="form-control">
+            </div>
+            <div class="form-group">
+              <label for="modal-edit-explanation">Giải thích:</label>
+              <textarea id="modal-edit-explanation" class="form-control"
+                rows="3"></textarea>
+            </div>
+            <div class="form-group">
+              <label for="modal-edit-examples">Ví dụ:</label>
+              <textarea id="modal-edit-examples" class="form-control"
+                rows="5"></textarea>
+              <small>Mỗi ví dụ gồm 2 dòng (Nhật, Việt). Các ví dụ cách nhau bởi
+                dấu ---</small>
+            </div>
+            <div class="form-group">
+              <label for="modal-edit-note">Chú ý:</label>
+              <textarea id="modal-edit-note" class="form-control"
+                rows="2"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button id="modal-edit-btn">Sửa</button>
+          <button id="modal-delete-btn" class="danger-button">Xóa</button>
+          <button id="modal-save-btn" class="primary-button">Lưu thay
+            đổi</button>
+          <button id="modal-cancel-btn">Hủy</button>
+        </div>
+      </div>
+    </div>
+
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    <script src="js/data.js"></script>
+    <script type="module" src="js/main.js"></script>
+
+    <!-- Nút cuộn lên đầu trang -->
+    <button id="scroll-to-top-btn" title="Lên đầu trang">↑</button>
+  </body>
+</html>

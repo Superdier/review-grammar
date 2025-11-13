@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Practice - Sentence Scramble</title>
+    <link rel="stylesheet" href="css/style.css">
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>Practice (Sentence Scramble)</h1>
+      </header>
+      <nav>
+        <a href="index.html">Home</a>
+        <a href="hoc-ngu-phap.html">Learn Grammar</a>
+        <a href="luyen-tap-vi-du.html">Example Practice</a>
+      </nav>
+      <main>
+        <div id="exercise-container">
+          <p id="vietnamese-sentence"></p>
+          <div class="sentence-puzzle">
+            <p><strong>Your Answer:</strong></p>
+            <div class="drop-zone" id="user-answer-zone">
+              <!-- Pieces selected by the user will appear here -->
+            </div>
+            <p><strong>Sentence Pieces (click to select):</strong></p>
+            <div class="word-bank" id="word-bank-zone">
+              <!-- Shuffled sentence pieces will appear here -->
+            </div>
+          </div>
+          <button id="check-button">Check</button>
+          <button id="next-button">Next Sentence</button>
+          <div id="result-message" style="margin-top: 15px;"></div>
+        </div>
+      </main>
+    </div>
+
+    <script src="js/data.js"></script>
+    <script src="js/luyen-tap.js"></script>
+
+    <!-- Nút cuộn lên đầu trang -->
+    <button id="scroll-to-top-btn" title="Lên đầu trang">↑</button>
+  </body>
+</html>
