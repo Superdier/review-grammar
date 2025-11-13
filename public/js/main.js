@@ -1,6 +1,11 @@
 import { db } from './firebase-init.js';
-import { collection, getDocs, writeBatch, doc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
-document.addEventListener("DOMContentLoaded", function () {
+import { collection, getDocs, writeBatch, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+
+// Firebase document IDs for stats and learning status (assuming single user for now)
+const FIREBASE_STATS_DOC_ID = "userStats";
+const FIREBASE_LEARNING_STATUS_DOC_ID = "userLearningStatus";
+
+function initializeHomePage(initialData, initialStats, initialLearningStatus) {
   // --- Lấy các phần tử DOM ---
   // Danh sách chính
   const grammarListUl = document.getElementById("grammar-ul");
@@ -55,57 +60,14 @@ document.addEventListener("DOMContentLoaded", function () {
   const STATS_STORAGE_KEY = "grammarStats";
   const LEARNING_STATUS_KEY = "learningStatus";
   const DAILY_GOAL_KEY = "dailyGoal";
-
+  
   // Global variables for grammar data
-  let appGrammarData = [];
-  let grammarStats = {};
-  let learningStatus = {};
+  let appGrammarData = initialData || [];
+  let grammarStats = initialStats || {};
+  let learningStatus = initialLearningStatus || {};
   
   // Global variable to store IDs learned today, initialized here
   let learnedTodayIds = new Set();
-
-  
-  // Tải và nạp dữ liệu từ Firebase hoặc dùng dữ liệu mẫu
-  async function loadInitialData() {
-    try {
-      // Tải dữ liệu ngữ pháp từ Firebase
-      const querySnapshot = await getDocs(collection(db, "grammar"));
-      const firebaseData = [];
-      querySnapshot.forEach((doc) => {
-        firebaseData.push({ id: doc.id, ...doc.data() });
-      });
-
-      if (firebaseData.length > 0) {
-        appGrammarData = firebaseData.sort((a, b) => a.id - b.id); // Sắp xếp theo ID
-        console.log("Loaded data from Firebase.");
-      } else {
-        // Không có dữ liệu trên Firebase, sử dụng dữ liệu từ data.js.
-        appGrammarData = [...grammarData];
-        console.log("No data on Firebase. Loaded default data.");
-      }
-    } catch (e) {
-      console.error("Error loading data from Firebase. Please check connection and configuration.", e);
-      // Sử dụng dữ liệu mặc định từ data.js khi có lỗi.
-      appGrammarData = [...grammarData];
-      console.log("Loaded default data due to Firebase connection failure.");
-    }
-
-    // Load stats and learning status from localStorage (can be moved to Firebase later)
-    try {
-      const storedStats = localStorage.getItem(STATS_STORAGE_KEY);
-      if (storedStats) grammarStats = JSON.parse(storedStats);
-      const storedLearningStatus = localStorage.getItem(LEARNING_STATUS_KEY);
-      if (storedLearningStatus) learningStatus = JSON.parse(storedLearningStatus);
-    } catch (e) {
-      console.error("Error loading learning status:", e);
-    }
-
-    // Tải và cập nhật mục tiêu hàng ngày
-    loadAndDisplayDailyGoal();
-
-    window.grammarData = appGrammarData; // Cập nhật biến toàn cục
-    applyFiltersAndSort();
-  }
 
   function renderGrammarList(data) {
     grammarListUl.innerHTML = ""; // Clear old list
@@ -149,6 +111,7 @@ document.addEventListener("DOMContentLoaded", function () {
             window.grammarData = appGrammarData;
             // Lưu vào localStorage để dùng cho lần sau
             localStorage.setItem(DATA_STORAGE_KEY, JSON.stringify(appGrammarData));
+            // Không cần đồng bộ stats/learningStatus ở đây, chỉ dữ liệu ngữ pháp chính
             console.log("Saved new data to localStorage. Starting sync to Firebase...");
 
             applyFiltersAndSort();
@@ -451,6 +414,7 @@ function parseWordText(text) {
       appGrammarData[grammarIndex] = updatedGrammar;
 
       // Cập nhật cả trong qlSessionData nếu đang trong phiên học nhanh
+      // (qlSessionData chỉ tồn tại trong main.js, không cần đồng bộ ra ngoài)
       const qlIndex = qlSessionData.findIndex(g => g.id === currentEditingId);
       if (qlIndex > -1) {
         qlSessionData[qlIndex] = updatedGrammar;
@@ -459,6 +423,7 @@ function parseWordText(text) {
 
     // Lưu vào localStorage và render lại danh sách
     localStorage.setItem(DATA_STORAGE_KEY, JSON.stringify(appGrammarData));
+    syncDataToFirebase(); // Đồng bộ dữ liệu ngữ pháp chính lên Firebase
     applyFiltersAndSort();
 
     // Đóng modal
@@ -475,6 +440,7 @@ function parseWordText(text) {
 
         // Lưu vào localStorage và render lại danh sách
         localStorage.setItem(DATA_STORAGE_KEY, JSON.stringify(appGrammarData));
+        syncDataToFirebase(); // Đồng bộ dữ liệu ngữ pháp chính lên Firebase
         applyFiltersAndSort();
 
         // Đóng modal
@@ -621,6 +587,7 @@ function parseWordText(text) {
             appGrammarData = importedData;
             window.grammarData = appGrammarData;
             localStorage.setItem(DATA_STORAGE_KEY, JSON.stringify(appGrammarData));
+            // Gọi hàm đồng bộ dữ liệu ngữ pháp chính
             syncDataToFirebase(); // <-- GỌI HÀM ĐỒNG BỘ
             applyFiltersAndSort();
             alert("Data imported successfully!");
@@ -654,8 +621,6 @@ function parseWordText(text) {
       window.location.reload();
     }
   });
-  // Tải và hiển thị dữ liệu ban đầu
-  loadInitialData();
 
   function loadAndDisplayDailyGoal() {
     const today = getTodayString();
@@ -732,6 +697,7 @@ function parseWordText(text) {
     goalData.goal = newGoal;
     localStorage.setItem(DAILY_GOAL_KEY, JSON.stringify(goalData));
     updateDailyGoalProgress();
+    // Không cần đồng bộ daily goal lên Firebase, chỉ lưu cục bộ
     alert(`Daily goal updated to ${newGoal} grammar points.`);
   });
   // ==================================================
@@ -1109,6 +1075,7 @@ function parseWordText(text) {
       alert(`Congratulations! You have completed the quick learn session.\nTotal grammar points learned today: ${learnedTodayIds.size}.`);
 
       localStorage.setItem(LEARNING_STATUS_KEY, JSON.stringify(learningStatus));
+      syncLearningStatusToFirebase(); // Đồng bộ trạng thái học lên Firebase
 
       quickLearnContainer.style.display = 'none';
       // Hiển thị các lựa chọn cho phiên tiếp theo thay vì nút bắt đầu mặc định
@@ -1135,4 +1102,77 @@ function parseWordText(text) {
   scrollToTopBtn.addEventListener("click", function() {
     window.scrollTo({top: 0, behavior: 'smooth'});
   });
-});
+}
+
+// Biến toàn cục để cache dữ liệu, tránh tải lại không cần thiết
+let cachedData = null;
+
+/**
+ * Tải tất cả dữ liệu cần thiết từ Firebase (grammar, stats, learningStatus).
+ * Sử dụng cơ chế cache để chỉ tải từ Firebase một lần.
+ * @param {boolean} forceRefresh - Nếu true, sẽ bỏ qua cache và tải lại từ Firebase.
+ * @returns {Promise<{appGrammarData: Array, grammarStats: Object, learningStatus: Object}>}
+ */
+export async function loadSharedData(forceRefresh = false) {
+  if (cachedData && !forceRefresh) {
+    console.log("Using cached data.");
+    return cachedData;
+  }
+
+  console.log("Fetching data from Firebase...");
+  let appGrammarData = [];
+  let grammarStats = {};
+  let learningStatus = {};
+
+  try {
+    // Tải dữ liệu ngữ pháp từ Firebase
+    const querySnapshot = await getDocs(collection(db, "grammar"));
+    const firebaseData = [];
+    querySnapshot.forEach((doc) => {
+      firebaseData.push({ id: doc.id, ...doc.data() });
+    });
+
+    if (firebaseData.length > 0) {
+      appGrammarData = firebaseData.sort((a, b) => a.id - b.id); // Sắp xếp theo ID
+    } else {
+      // Không có dữ liệu trên Firebase, sử dụng dữ liệu từ data.js.
+      appGrammarData = [...grammarData];
+      console.log("No grammar data on Firebase. Loaded default data.");
+    }
+  } catch (e) {
+    console.error("Error loading grammar data from Firebase. Using default data.", e);
+    appGrammarData = [...grammarData];
+  }
+
+  // Load stats and learning status from Firebase
+  try {
+    const statsDocRef = doc(db, "stats", FIREBASE_STATS_DOC_ID);
+    const statsDocSnap = await getDoc(statsDocRef);
+    if (statsDocSnap.exists()) {
+      grammarStats = statsDocSnap.data();
+    } else {
+      console.log("No grammar stats found on Firebase. Initializing empty stats.");
+    }
+
+    const learningStatusDocRef = doc(db, "learningStatus", FIREBASE_LEARNING_STATUS_DOC_ID);
+    const learningStatusDocSnap = await getDoc(learningStatusDocRef);
+    if (learningStatusDocSnap.exists()) {
+      learningStatus = learningStatusDocSnap.data();
+    } else {
+      console.log("No learning status found on Firebase. Initializing empty status.");
+    }
+  } catch (e) {
+    console.error("Error loading stats/learning status from Firebase.", e);
+  }
+
+  cachedData = { appGrammarData, grammarStats, learningStatus };
+  return cachedData;
+}
+
+// Chỉ chạy logic của trang chủ nếu chúng ta đang ở trên trang index.html
+if (document.getElementById('grammar-list')) {
+  document.addEventListener("DOMContentLoaded", async () => {
+    const { appGrammarData: data, grammarStats: stats, learningStatus: status } = await loadSharedData();
+    initializeHomePage(data, stats, status);
+  });
+}

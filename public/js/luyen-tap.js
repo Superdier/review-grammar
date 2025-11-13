@@ -1,4 +1,6 @@
-document.addEventListener('DOMContentLoaded', () => {
+import { loadSharedData } from './main.js';
+
+document.addEventListener('DOMContentLoaded', async () => {
     const viSentenceEl = document.getElementById('vietnamese-sentence');
     const userAnswerZone = document.getElementById('user-answer-zone');
     const wordBankZone = document.getElementById('word-bank-zone');
@@ -10,18 +12,11 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentExample = null;
 
     // Load data from localStorage or use sample data
-    async function loadData() {
-        const STORAGE_KEY = "jlptGrammarData";
-        try {
-            const storedData = localStorage.getItem(STORAGE_KEY);
-            if (storedData) {
-                activeGrammarData = JSON.parse(storedData);
-            } else {
-                activeGrammarData = [...grammarData]; // Dùng dữ liệu mặc định
-            }
-        } catch (e) {
-            activeGrammarData = [...grammarData]; // Dùng dữ liệu mặc định khi lỗi
-        }
+    async function loadDataAndSetup() {
+        // Use global data loaded by main.js from Firebase
+        const data = await loadSharedData();
+        activeGrammarData = data.appGrammarData;
+        setupNewExercise();
     }
 
     function setupNewExercise() {
@@ -32,7 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
         checkButton.disabled = false;
 
         if (activeGrammarData.length === 0) {
-            viSentenceEl.textContent = "Không có dữ liệu để luyện tập. Vui lòng tải file Word ở trang chủ.";
+            viSentenceEl.textContent = "No data to practice. Please upload a data file on the homepage.";
             return;
         }
 
@@ -40,7 +35,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const randomGrammar = activeGrammarData[Math.floor(Math.random() * activeGrammarData.length)];
         currentExample = randomGrammar.examples[Math.floor(Math.random() * randomGrammar.examples.length)];
 
-        // Hiển thị câu tiếng Việt làm đề bài
         viSentenceEl.textContent = currentExample.vi;
 
         // Split the Japanese sentence into pieces and shuffle them
@@ -99,9 +93,7 @@ document.addEventListener('DOMContentLoaded', () => {
     nextButton.addEventListener('click', setupNewExercise);
 
     // Start the first exercise
-    loadData().then(() => {
-        setupNewExercise();
-    });
+    loadDataAndSetup();
 
     // --- Logic cho nút cuộn lên đầu trang ---
     const scrollToTopBtn = document.getElementById("scroll-to-top-btn");

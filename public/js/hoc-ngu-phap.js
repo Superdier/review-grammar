@@ -1,4 +1,6 @@
-document.addEventListener('DOMContentLoaded', () => {
+import { loadSharedData } from './main.js';
+
+document.addEventListener('DOMContentLoaded', async () => {
     // Get DOM elements
     const modeRadios = document.querySelectorAll('input[name="game-mode"]');
     const resetButton = document.getElementById('reset-button');
@@ -35,34 +37,12 @@ document.addEventListener('DOMContentLoaded', () => {
     let learningStatus = {};
 
     // Load data from localStorage or use sample data
-    async function loadData() {
-        const STORAGE_KEY = "jlptGrammarData";
-        try {
-            const storedData = localStorage.getItem(STORAGE_KEY);
-            if (storedData) {
-                activeGrammarData = JSON.parse(storedData);
-            } else {
-                activeGrammarData = [...grammarData]; // Use default data
-            }
-        } catch (e) {
-            activeGrammarData = [...grammarData]; // Use default data on error
-        }
-
-        // Load statistics data
-        try {
-            const storedStats = localStorage.getItem(STATS_KEY);
-            if (storedStats) grammarStats = JSON.parse(storedStats);
-        } catch (e) {
-            console.error("Error loading stats:", e);
-        }
-
-        // Load learning status data
-        try {
-            const storedLearningStatus = localStorage.getItem(LEARNING_STATUS_KEY);
-            if (storedLearningStatus) learningStatus = JSON.parse(storedLearningStatus);
-        } catch (e) {
-            console.error("Error loading learning status:", e);
-        }
+    async function loadDataAndSetup() {
+        const data = await loadSharedData();
+        activeGrammarData = data.appGrammarData;
+        grammarStats = data.grammarStats;
+        learningStatus = data.learningStatus;
+        setupGame();
     }
 
     // Function to shuffle an array
@@ -217,6 +197,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (learningStatus[structCard.dataset.id] === 'learned') {
                 learningStatus[structCard.dataset.id] = 'review';
                 localStorage.setItem(LEARNING_STATUS_KEY, JSON.stringify(learningStatus));
+                if (window.syncLearningStatusToFirebase) window.syncLearningStatusToFirebase(); // Đồng bộ lên Firebase
             }
             setTimeout(() => {
                 // Revert to the initial state
@@ -319,8 +300,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (isCorrect) {
             stats.correct += 1;
         }
+        localStorage.setItem(STATS_KEY, JSON.stringify(grammarStats)); // Lưu vào localStorage
 
-        localStorage.setItem(STATS_KEY, JSON.stringify(grammarStats));
+        if (window.syncStatsToFirebase) window.syncStatsToFirebase(); // Đồng bộ lên Firebase
     }
 
     function updateMCProgressBar() {
@@ -408,10 +390,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Load data and start the game for the first time
-    loadData().then(() => {
-        setupGame();
-    });
-
+    loadDataAndSetup();
 
     // The game state is now saved, so no warning is needed.
     // Instead, we will save the state when the user leaves.
