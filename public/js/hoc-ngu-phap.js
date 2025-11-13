@@ -4,6 +4,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Get DOM elements
     const modeRadios = document.querySelectorAll('input[name="game-mode"]');
     const resetButton = document.getElementById('reset-button');
+    const loadingOverlay = document.getElementById('loading-overlay');
 
     // Containers for the 2 modes
     const pairMatchContainer = document.getElementById('pair-match-container');
@@ -27,7 +28,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     let totalPairs = 0;
     let correctPairs = 0;
 
-    const PAIR_MATCH_STATE_KEY = "pairMatchGameState";
     // Variable for statistics
     const STATS_KEY = "grammarStats";
     let grammarStats = {};
@@ -43,6 +43,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         grammarStats = data.grammarStats;
         learningStatus = data.learningStatus;
         setupGame();
+        // Hide loading overlay
+        if (loadingOverlay) loadingOverlay.classList.add('hidden');
     }
 
     // Function to shuffle an array
@@ -59,20 +61,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     // =================================================
 
     function setupPairMatchingGame() {
-        // Check if there is a saved game
-        const savedStateJSON = localStorage.getItem(PAIR_MATCH_STATE_KEY);
-        if (savedStateJSON) {
-            try {
-                if (confirm('An unfinished pair matching session was found. Do you want to continue?')) {
-                    loadPairMatchingFromState(JSON.parse(savedStateJSON));
-                    return; // Exit after loading state
-                }
-            } catch (e) {
-                console.error("Error reading saved game state:", e);
-            }
-            // If the user doesn't want to continue or there's an error, clear the saved state
-            localStorage.removeItem(PAIR_MATCH_STATE_KEY);
-        }
         cardBoard.innerHTML = '';
         correctPairs = 0;
         selectedStructure = null;
@@ -88,32 +76,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         allCardsData.forEach(itemData => createPairCard(itemData, cardBoard));
 
         // Update the progress counter
-        updateProgressCounter();
-    }
-
-    function loadPairMatchingFromState(state) {
-        cardBoard.innerHTML = '';
-        hideSelectionBubble();
-
-        totalPairs = state.totalPairs;
-        correctPairs = state.correctPairs;
-
-        state.cards.forEach(cardData => {
-            const card = document.createElement('div');
-            card.classList.add('card');
-            card.dataset.id = cardData.id;
-            card.dataset.type = cardData.type;
-            card.textContent = cardData.text;
-            if (cardData.isCorrect) {
-                card.classList.add('correct');
-                if (hideCorrectCheckbox.checked) {
-                    card.classList.add('hidden');
-                }
-            }
-            card.addEventListener('click', () => onPairCardClick(card));
-            cardBoard.appendChild(card);
-        });
-
         updateProgressCounter();
     }
 
@@ -185,19 +147,18 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             if (correctPairs === totalPairs) {
                 showCompletionPopup();
-                localStorage.removeItem(PAIR_MATCH_STATE_KEY); // Clear state upon completion
             }
         } else {
             // Incorrect match
             structCard.classList.add('incorrect'); // Turn red
             meanCard.classList.add('incorrect');
-            savePairMatchingState(); // Save state after a correct match
 
             // If this item was "learned", change it to "review"
             if (learningStatus[structCard.dataset.id] === 'learned') {
                 learningStatus[structCard.dataset.id] = 'review';
-                localStorage.setItem(LEARNING_STATUS_KEY, JSON.stringify(learningStatus));
-                if (window.syncLearningStatusToFirebase) window.syncLearningStatusToFirebase(); // Đồng bộ lên Firebase
+                if (window.syncLearningStatusToFirebase) {
+                    window.syncLearningStatusToFirebase();
+                }
             }
             setTimeout(() => {
                 // Revert to the initial state
@@ -205,21 +166,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 meanCard.classList.remove('incorrect');
             }, 500);
         }
-    }
-    function savePairMatchingState() {
-        if (currentMode !== 'pair-match' || correctPairs === totalPairs) {
-            localStorage.removeItem(PAIR_MATCH_STATE_KEY);
-            return;
-        }
-        const cardsState = Array.from(cardBoard.children).map(card => ({
-            id: card.dataset.id,
-            type: card.dataset.type,
-            text: card.textContent,
-            isCorrect: card.classList.contains('correct')
-        }));
-
-        const gameState = { totalPairs, correctPairs, cards: cardsState };
-        localStorage.setItem(PAIR_MATCH_STATE_KEY, JSON.stringify(gameState));
     }
 
     // =================================================
@@ -300,9 +246,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (isCorrect) {
             stats.correct += 1;
         }
-        localStorage.setItem(STATS_KEY, JSON.stringify(grammarStats)); // Lưu vào localStorage
-
-        if (window.syncStatsToFirebase) window.syncStatsToFirebase(); // Đồng bộ lên Firebase
+        if (window.syncStatsToFirebase) {
+            window.syncStatsToFirebase();
+        }
     }
 
     function updateMCProgressBar() {
@@ -349,8 +295,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             document.querySelector(`input[name="game-mode"][value="${currentMode}"]`).checked = true;
             return;
         }
-        // Clear the saved pair-matching game state when restarting or switching modes
-        localStorage.removeItem(PAIR_MATCH_STATE_KEY);
         if (currentMode === 'pair-match') {
             pairMatchContainer.style.display = 'block';
             multipleChoiceContainer.style.display = 'none';
@@ -391,12 +335,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Load data and start the game for the first time
     loadDataAndSetup();
-
-    // The game state is now saved, so no warning is needed.
-    // Instead, we will save the state when the user leaves.
-    window.addEventListener('beforeunload', (event) => {
-        savePairMatchingState();
-    });
 
     // --- Logic for the scroll-to-top button ---
     const scrollToTopBtn = document.getElementById("scroll-to-top-btn");

@@ -1,11 +1,38 @@
 import { db } from './firebase-init.js';
 import { collection, getDocs, writeBatch, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
 
+/**
+ * Hiển thị một thông báo toast.
+ * @param {string} message - Nội dung thông báo.
+ * @param {'success' | 'error'} type - Loại thông báo.
+ * @param {number} duration - Thời gian hiển thị (ms).
+ */
+function showToast(message, type = 'success', duration = 3000) {
+  const container = document.getElementById('toast-container');
+  if (!container) return;
+
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.textContent = message;
+
+  container.appendChild(toast);
+
+  // Animate in
+  setTimeout(() => toast.classList.add('show'), 10);
+
+  // Animate out and remove
+  setTimeout(() => {
+    toast.classList.remove('show');
+    toast.addEventListener('transitionend', () => toast.remove());
+  }, duration);
+}
+
 // Firebase document IDs for stats and learning status (assuming single user for now)
 const FIREBASE_STATS_DOC_ID = "userStats";
 const FIREBASE_LEARNING_STATUS_DOC_ID = "userLearningStatus";
 
 function initializeHomePage(initialData, initialStats, initialLearningStatus) {
+  
   // --- Lấy các phần tử DOM ---
   // Danh sách chính
   const grammarListUl = document.getElementById("grammar-ul");
@@ -116,18 +143,16 @@ function initializeHomePage(initialData, initialStats, initialLearningStatus) {
 
             applyFiltersAndSort();
             syncDataToFirebase(); // <-- GỌI HÀM ĐỒNG BỘ
-            alert(
-              `Successfully parsed ${parsedData.length} grammar structures from the file!`
-            );
+            showToast(`Successfully parsed ${parsedData.length} grammar structures!`, 'success');
           } else {
-            alert(
+            showToast(
               "No grammar structures found in the file or the format is incorrect."
-            );
+            , 'error');
           }
         })
         .catch((err) => {
           console.error(err);
-          alert("An error occurred while reading the Word file.");
+          showToast("An error occurred while reading the Word file.", 'error');
         });
     };
     reader.readAsArrayBuffer(file);
@@ -285,10 +310,10 @@ function parseWordText(text) {
       // Bước 3: Thực thi batch
       await batch.commit();
       console.log("✅ Successfully synced data to Firebase!");
-      alert("Successfully synced new data to Firebase!");
+      showToast("Data successfully synced to Firebase!", 'success');
     } catch (error) {
       console.error("❌ Error syncing data to Firebase:", error);
-      alert("An error occurred while syncing data to Firebase. Please check the console log.");
+      showToast("Error syncing data to Firebase. Check console.", 'error');
     }
   }
 
@@ -371,7 +396,7 @@ function parseWordText(text) {
     const examplesText = document.getElementById("modal-edit-examples").value;
 
     if (!newStructure || !newMeaning) {
-      alert("Structure and Meaning are required.");
+      showToast("Structure and Meaning are required.", 'error');
       return;
     }
 
@@ -590,14 +615,14 @@ function parseWordText(text) {
             // Gọi hàm đồng bộ dữ liệu ngữ pháp chính
             syncDataToFirebase(); // <-- GỌI HÀM ĐỒNG BỘ
             applyFiltersAndSort();
-            alert("Data imported successfully!");
+            showToast("Data imported successfully!", 'success');
           }
         } else {
-          alert("Invalid JSON file format. Please check the file.");
+          showToast("Invalid JSON file format. Please check the file.", 'error');
         }
       } catch (error) {
         console.error("Lỗi khi phân tích file JSON:", error);
-        alert("An error occurred while reading the JSON file. The file may be corrupted.");
+        showToast("Error reading JSON file. It may be corrupted.", 'error');
       } finally {
         // Reset input để có thể chọn lại cùng một file
         event.target.value = null;
@@ -617,7 +642,7 @@ function parseWordText(text) {
     ) {
       localStorage.removeItem(DATA_STORAGE_KEY);
       localStorage.removeItem(STATS_STORAGE_KEY); // Xóa cả thống kê
-      alert("Data deleted. The page will be reloaded with the original data.");
+      showToast("Data cleared. Reloading page...", 'success');
       window.location.reload();
     }
   });
@@ -697,8 +722,7 @@ function parseWordText(text) {
     goalData.goal = newGoal;
     localStorage.setItem(DAILY_GOAL_KEY, JSON.stringify(goalData));
     updateDailyGoalProgress();
-    // Không cần đồng bộ daily goal lên Firebase, chỉ lưu cục bộ
-    alert(`Daily goal updated to ${newGoal} grammar points.`);
+    showToast(`Daily goal updated to ${newGoal}.`, 'success');
   });
   // ==================================================
   // LOGIC CHO QUICK LEARN
@@ -756,7 +780,7 @@ function parseWordText(text) {
       });
 
       if (qlNewItems.length === 0 && learnedTodayItems.length > 0) {
-        alert("You have learned all new grammar points. This session will only include items learned today.");
+        showToast("All new items learned! This session will be for review.", 'success');
       }
     } else {
       // Chế độ học mới: chỉ bao gồm các mục mới
@@ -764,7 +788,7 @@ function parseWordText(text) {
     }
 
     if (qlSessionData.length === 0) {
-        alert("Congratulations! You have learned all new grammar points. Reset the data if you want to learn again.");
+        showToast("Congratulations! You've learned all grammar points.", 'success');
         return;
     }
     
@@ -1072,7 +1096,7 @@ function parseWordText(text) {
       localStorage.setItem(DAILY_GOAL_KEY, JSON.stringify(goalData));
       updateDailyGoalProgress();
 
-      alert(`Congratulations! You have completed the quick learn session.\nTotal grammar points learned today: ${learnedTodayIds.size}.`);
+      showToast(`Session complete! You learned ${qlSessionData.length} items.`, 'success');
 
       localStorage.setItem(LEARNING_STATUS_KEY, JSON.stringify(learningStatus));
       syncLearningStatusToFirebase(); // Đồng bộ trạng thái học lên Firebase
@@ -1102,6 +1126,10 @@ function parseWordText(text) {
   scrollToTopBtn.addEventListener("click", function() {
     window.scrollTo({top: 0, behavior: 'smooth'});
   });
+
+  // Initial render of the list
+  applyFiltersAndSort();
+  loadAndDisplayDailyGoal();
 }
 
 // Biến toàn cục để cache dữ liệu, tránh tải lại không cần thiết
@@ -1172,7 +1200,10 @@ export async function loadSharedData(forceRefresh = false) {
 // Chỉ chạy logic của trang chủ nếu chúng ta đang ở trên trang index.html
 if (document.getElementById('grammar-list')) {
   document.addEventListener("DOMContentLoaded", async () => {
+    const loadingOverlay = document.getElementById('loading-overlay');
     const { appGrammarData: data, grammarStats: stats, learningStatus: status } = await loadSharedData();
     initializeHomePage(data, stats, status);
+    // Hide loading overlay
+    if (loadingOverlay) loadingOverlay.classList.add('hidden');
   });
 }

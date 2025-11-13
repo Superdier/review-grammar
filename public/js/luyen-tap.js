@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const checkButton = document.getElementById('check-button');
     const nextButton = document.getElementById('next-button');
     const resultMessageEl = document.getElementById('result-message');
+    const loadingOverlay = document.getElementById('loading-overlay');
 
     let activeGrammarData = [];
     let currentExample = null;
@@ -17,6 +18,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         const data = await loadSharedData();
         activeGrammarData = data.appGrammarData;
         setupNewExercise();
+        // Hide loading overlay
+        if (loadingOverlay) loadingOverlay.classList.add('hidden');
     }
 
     function setupNewExercise() {
