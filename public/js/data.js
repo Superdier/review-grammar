@@ -1,4 +1,4 @@
-const grammarData = [
+export const grammarData = [
     {
         id: 1,
         structure: "～ことにする",

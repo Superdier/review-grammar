@@ -1,4 +1,5 @@
-import { loadSharedData } from './main.js';
+import { loadSharedData, syncStatsToFirebase } from './main.js';
+import { shuffle } from './utils.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
     const viSentenceEl = document.getElementById('vietnamese-sentence');
@@ -7,19 +8,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     const checkButton = document.getElementById('check-button');
     const nextButton = document.getElementById('next-button');
     const resultMessageEl = document.getElementById('result-message');
-    const loadingOverlay = document.getElementById('loading-overlay');
 
     let activeGrammarData = [];
     let currentExample = null;
+    let grammarStats = {};
 
     // Load data from localStorage or use sample data
     async function loadDataAndSetup() {
         // Use global data loaded by main.js from Firebase
         const data = await loadSharedData();
         activeGrammarData = data.appGrammarData;
+        grammarStats = data.grammarStats;
         setupNewExercise();
-        // Hide loading overlay
-        if (loadingOverlay) loadingOverlay.classList.add('hidden');
     }
 
     function setupNewExercise() {
@@ -36,13 +36,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // Randomly select a grammar point, then randomly select an example
         const randomGrammar = activeGrammarData[Math.floor(Math.random() * activeGrammarData.length)];
-        currentExample = randomGrammar.examples[Math.floor(Math.random() * randomGrammar.examples.length)];
+        const randomExample = randomGrammar.examples[Math.floor(Math.random() * randomGrammar.examples.length)];
+        currentExample = { ...randomExample, grammarId: randomGrammar.id }; // Store grammarId with the example
 
         viSentenceEl.textContent = currentExample.vi;
 
         // Split the Japanese sentence into pieces and shuffle them
         // This is a simple split method, can be improved further
-        const pieces = currentExample.jp.replace(/。|、/g, ' $&').split(/\s+/).filter(p => p);
+        // Cải tiến: Tách thành từng ký tự để xử lý câu không có khoảng trắng
+        const pieces = currentExample.jp.split('');
         shuffle(pieces);
 
         // Create word pieces in the word bank
@@ -50,10 +52,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             const pieceEl = document.createElement('div');
             pieceEl.id = `piece-${Date.now()}-${index}`; // Create a unique ID
             pieceEl.classList.add('word-piece');
-            pieceEl.style.cursor = 'pointer'; // Add cursor pointer to indicate it's clickable
             pieceEl.textContent = piece;
             
-            // Add click event to move the piece
+            // Kích hoạt chức năng kéo và thả
+            pieceEl.draggable = true;
+            pieceEl.addEventListener('dragstart', onDragStart);
+
+            // Giữ lại chức năng click để tương thích mobile
             pieceEl.addEventListener('click', onPieceClick);
 
             wordBankZone.appendChild(pieceEl);
@@ -71,25 +76,55 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
+    // --- Handlers for Drag and Drop ---
+    function onDragStart(e) {
+        e.dataTransfer.setData('text/plain', e.target.id);
+    }
+
+    function onDragOver(e) {
+        e.preventDefault(); // Necessary to allow dropping
+    }
+
+    function onDrop(e) {
+        e.preventDefault();
+        const id = e.dataTransfer.getData('text');
+        const draggableElement = document.getElementById(id);
+        const dropzone = e.target.closest('.drop-zone, .word-bank');
+        if (dropzone && draggableElement) {
+            dropzone.appendChild(draggableElement);
+        }
+    }
+
+    // Add drag and drop event listeners to both zones
+    userAnswerZone.addEventListener('dragover', onDragOver);
+    userAnswerZone.addEventListener('drop', onDrop);
+    wordBankZone.addEventListener('dragover', onDragOver);
+    wordBankZone.addEventListener('drop', onDrop);
+
     function checkAnswer() {
         const userAnswerPieces = Array.from(userAnswerZone.children).map(el => el.textContent);
         const userAnswer = userAnswerPieces.join('').replace(/\s/g, '');
         const correctAnswer = currentExample.jp.replace(/\s/g, '');
 
-        if (userAnswer === correctAnswer) {
+        const isCorrect = userAnswer === correctAnswer;
+
+        // Update stats
+        const grammarId = currentExample.grammarId;
+        if (!grammarStats[grammarId]) {
+            grammarStats[grammarId] = { correct: 0, total: 0 };
+        }
+        grammarStats[grammarId].total += 1;
+        if (isCorrect) {
+            grammarStats[grammarId].correct += 1;
             resultMessageEl.innerHTML = `<span style="color: green;">Correct!</span><br>The correct sentence is: <strong>${currentExample.jp}</strong>`;
         } else {
             resultMessageEl.innerHTML = `<span style="color: red;">Incorrect!</span><br>The correct sentence is: <strong>${currentExample.jp}</strong>`;
         }
-        checkButton.disabled = true;
-    }
 
-    // Function to shuffle an array
-    function shuffle(array) {
-        for (let i = array.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [array[i], array[j]] = [array[j], array[i]];
-        }
+        // Sync stats to Firebase
+        syncStatsToFirebase(grammarStats);
+
+        checkButton.disabled = true;
     }
 
     checkButton.addEventListener('click', checkAnswer);
@@ -97,21 +132,4 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Start the first exercise
     loadDataAndSetup();
-
-    // --- Logic cho nút cuộn lên đầu trang ---
-    const scrollToTopBtn = document.getElementById("scroll-to-top-btn");
-
-    // Hiển thị nút khi cuộn xuống 200px
-    window.onscroll = function() {
-        if (document.body.scrollTop > 200 || document.documentElement.scrollTop > 200) {
-            scrollToTopBtn.style.display = "block";
-        } else {
-            scrollToTopBtn.style.display = "none";
-        }
-    };
-
-    // Cuộn lên đầu khi nhấp vào nút
-    scrollToTopBtn.addEventListener("click", function() {
-        window.scrollTo({top: 0, behavior: 'smooth'});
-    });
 });

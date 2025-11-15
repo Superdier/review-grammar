@@ -1,33 +1,8 @@
 import { db } from './firebase-init.js';
+import { grammarData as defaultGrammarData } from './data.js';
+import { showToast, shuffle } from './utils.js';
 import { collection, getDocs, writeBatch, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
 
-/**
- * Hiển thị một thông báo toast.
- * @param {string} message - Nội dung thông báo.
- * @param {'success' | 'error'} type - Loại thông báo.
- * @param {number} duration - Thời gian hiển thị (ms).
- */
-function showToast(message, type = 'success', duration = 3000) {
-  const container = document.getElementById('toast-container');
-  if (!container) return;
-
-  const toast = document.createElement('div');
-  toast.className = `toast ${type}`;
-  toast.textContent = message;
-
-  container.appendChild(toast);
-
-  // Animate in
-  setTimeout(() => toast.classList.add('show'), 10);
-
-  // Animate out and remove
-  setTimeout(() => {
-    toast.classList.remove('show');
-    toast.addEventListener('transitionend', () => toast.remove());
-  }, duration);
-}
-
-// Firebase document IDs for stats and learning status (assuming single user for now)
 const FIREBASE_STATS_DOC_ID = "userStats";
 const FIREBASE_LEARNING_STATUS_DOC_ID = "userLearningStatus";
 
@@ -39,6 +14,7 @@ function initializeHomePage(initialData, initialStats, initialLearningStatus) {
   const addNewGrammarBtn = document.getElementById("add-new-grammar-btn");
   const sortOptions = document.getElementById("sort-options");
   const filterStatus = document.getElementById("filter-status");
+  const searchInput = document.getElementById("search-input");
 
   // Quản lý dữ liệu
   const fileInput = document.getElementById("word-file-input");
@@ -92,6 +68,27 @@ function initializeHomePage(initialData, initialStats, initialLearningStatus) {
   let appGrammarData = initialData || [];
   let grammarStats = initialStats || {};
   let learningStatus = initialLearningStatus || {};
+
+  // Hàm để áp dụng các lớp CSS cho các nút để có giao diện đồng bộ
+  function applyButtonStyles() {
+    // Nút hành động chính
+    addNewGrammarBtn?.classList.add('btn', 'btn-primary');
+    saveButton?.classList.add('btn', 'btn-primary');
+    startQuickLearnBtn?.classList.add('btn', 'btn-primary');
+    startNextSessionBtn?.classList.add('btn', 'btn-primary');
+    qlNextBtn?.classList.add('btn', 'btn-primary');
+
+    // Nút hành động phụ
+    editButton?.classList.add('btn', 'btn-secondary');
+    cancelButton?.classList.add('btn', 'btn-secondary');
+    exportJsonBtn?.classList.add('btn', 'btn-secondary');
+    document.querySelector('label[for="import-json-input"]')?.classList.add('btn', 'btn-secondary');
+    document.querySelector('label[for="word-file-input"]')?.classList.add('btn', 'btn-secondary');
+
+    // Nút hành động nguy hiểm
+    deleteButton?.classList.add('btn', 'btn-danger');
+    clearStorageButton?.classList.add('btn', 'btn-danger');
+  }
   
   // Global variable to store IDs learned today, initialized here
   let learnedTodayIds = new Set();
@@ -101,6 +98,7 @@ function initializeHomePage(initialData, initialStats, initialLearningStatus) {
     data.forEach((grammar) => {
       const li = document.createElement("li");
       const button = document.createElement("button");
+      button.className = 'btn btn-secondary btn-sm'; // Áp dụng style mới
       button.textContent = "View Details";
       button.onclick = () => showGrammarDetails(grammar.id);
 
@@ -546,8 +544,21 @@ function parseWordText(text) {
     let filteredData = [...appGrammarData];
 
     // 1. Lọc theo trạng thái
-    const filterValue = filterStatus.value;
-    if (filterValue !== 'all') {
+    // 1. Lọc theo từ khóa tìm kiếm
+    const searchTerm = searchInput ? searchInput.value.toLowerCase().trim() : "";
+    if (searchTerm && searchInput) {
+      filteredData = filteredData.filter(g =>
+        g.structure.toLowerCase().includes(searchTerm) ||
+        g.meaning.toLowerCase().includes(searchTerm) ||
+        (g.explanation && g.explanation.toLowerCase().includes(searchTerm)) ||
+        (g.note && g.note.toLowerCase().includes(searchTerm))
+      );
+    }
+
+
+    // 2. Lọc theo trạng thái
+    const filterValue = filterStatus ? filterStatus.value : 'all';
+    if (filterStatus && filterValue !== 'all') {
       filteredData = filteredData.filter(g => {
         const status = learningStatus[g.id];
         if (filterValue === 'learned') return status === 'learned'; // Filter: Learned
@@ -558,6 +569,7 @@ function parseWordText(text) {
     }
 
     // 2. Sắp xếp
+    // 3. Sắp xếp
     const sortBy = sortOptions.value;
     switch (sortBy) {
       case 'az':
@@ -572,11 +584,13 @@ function parseWordText(text) {
     }
 
     // 3. Render lại danh sách
+    // 4. Render lại danh sách
     renderGrammarList(filteredData);
   }
 
-  sortOptions.addEventListener("change", applyFiltersAndSort);
-  filterStatus.addEventListener("change", applyFiltersAndSort);
+  if (sortOptions) sortOptions.addEventListener("change", applyFiltersAndSort);
+  if (filterStatus) filterStatus.addEventListener("change", applyFiltersAndSort);
+  if (searchInput) searchInput.addEventListener("input", applyFiltersAndSort);
 
   // --- Logic cho Import/Export JSON ---
 
@@ -739,14 +753,6 @@ function parseWordText(text) {
     return new Date().toISOString().slice(0, 10);
   }
 
-  function shuffle(array) {
-    for (let i = array.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [array[i], array[j]] = [array[j], array[i]];
-    }
-    return array;
-  }
-
   function startLearnSession() {
     const learnMode = document.querySelector('input[name="learn-mode"]:checked')?.value || 'new-only';
     qlIsReviewSession = learnMode === 'review-and-new';
@@ -814,7 +820,14 @@ function parseWordText(text) {
 
   function loadQuickLearnStep() {
     updateQLProgress();
-    qlStepContainers.forEach(c => c.style.display = 'none');
+    // Ẩn container hiện tại một cách mượt mà
+    const activeContainer = document.querySelector('.ql-step-container.active');
+    if (activeContainer) {
+        activeContainer.classList.remove('active');
+    }
+
+    // Ẩn tất cả các container để chuẩn bị cho cái tiếp theo
+    qlStepContainers.forEach(c => c.style.display = 'none'); // Vẫn cần để reset
     qlNextBtn.disabled = false;
 
     if (!qlSessionData[qlCurrentIndex]) return; // Guard against invalid index
@@ -842,25 +855,30 @@ function parseWordText(text) {
     qlStepTitle.textContent = stepTitles[qlCurrentStep];
 
     switch (qlCurrentStep) {
-        case 0: { // View Details
-            qlStep1View.style.display = 'block';
-            qlStep1View.innerHTML = `
-                <h3>${currentGrammar.structure}</h3>
-                <p><strong>Meaning:</strong> ${currentGrammar.meaning}</p>
-                <p><strong>Explanation:</strong> ${currentGrammar.explanation}</p>
-                <p><strong>Examples:</strong></p>
-                <ul>${currentGrammar.examples.map(ex => `<li><div class="jp-example">${ex.jp}</div><div class="vi-example">${ex.vi}</div></li>`).join('')}</ul>
-                <p><strong>Note:</strong> ${currentGrammar.note || 'None'}</p>
+      case 0: { // View Details
+            const container = qlStep1View;
+            container.innerHTML = `
+                <div class="ql-detail-card">
+                    <h3>${currentGrammar.structure}</h3>
+                    <p><strong>Meaning:</strong> ${currentGrammar.meaning}</p>
+                    <p><strong>Explanation:</strong> ${currentGrammar.explanation || 'N/A'}</p>
+                    <div class="ql-examples">
+                        <p><strong>Examples:</strong></p>
+                        <ul>${currentGrammar.examples.map(ex => `<li><div class="jp-example">${ex.jp}</div><div class="vi-example">${ex.vi}</div></li>`).join('') || '<li>No examples available.</li>'}</ul>
+                    </div>
+                    <p><strong>Note:</strong> ${currentGrammar.note || 'None'}</p>
+                    <button id="ql-edit-details-btn" class="btn-secondary">Edit Details</button>
+                </div>
             `;
-            // Thêm nút Sửa
-            const editBtn = document.createElement('button');
-            editBtn.textContent = 'Edit Details';
-            editBtn.onclick = () => showGrammarDetails(currentGrammar.id);
-            qlStep1View.appendChild(editBtn);
+            container.querySelector('#ql-edit-details-btn').onclick = () => showGrammarDetails(currentGrammar.id);
+            
+            // Hiển thị container một cách mượt mà
+            container.style.display = 'block';
+            setTimeout(() => container.classList.add('active'), 10);
             break;
         }
         case 1: { // Multiple Choice
-            qlStep2MC.style.display = 'block';
+            const container = qlStep2MC;
             document.getElementById('ql-mc-meaning').innerText = currentGrammar.meaning;
             const options = shuffle([...appGrammarData]).filter(g => g.id !== currentGrammar.id).slice(0, 3);
             options.push(currentGrammar);
@@ -869,21 +887,27 @@ function parseWordText(text) {
             optionsContainer.innerHTML = '';
             options.forEach(opt => {
                 const btn = document.createElement('button');
+                btn.className = 'ql-mc-option';
                 btn.textContent = opt.structure;
                 btn.onclick = () => {
                     optionsContainer.querySelectorAll('button').forEach(b => b.disabled = true);
                     if (opt.id === currentGrammar.id) {
-                        btn.style.backgroundColor = 'lightgreen';
+                        btn.classList.add('correct');
                     } else {
-                        btn.style.backgroundColor = 'lightcoral';
+                        btn.classList.add('incorrect');
+                        // Highlight the correct one
+                        const correctBtn = Array.from(optionsContainer.querySelectorAll('button')).find(b => b.textContent === currentGrammar.structure);
+                        if (correctBtn) correctBtn.classList.add('correct');
                     }
                 };
                 optionsContainer.appendChild(btn);
             });
+            container.style.display = 'block';
+            setTimeout(() => container.classList.add('active'), 10);
             break;
         }
         case 2: { // Pair Match
-            qlStep3Match.style.display = 'block';
+            const container = qlStep3Match;
             const board = document.getElementById('ql-match-board');
             const hintBtn = document.getElementById('ql-match-hint-btn');
             board.innerHTML = '';
@@ -946,10 +970,12 @@ function parseWordText(text) {
                     }, 2000);
                 }
             };
+            container.style.display = 'block';
+            setTimeout(() => container.classList.add('active'), 10);
             break;
         }
         case 3: { // Fill Blank
-            qlStep4Fill.style.display = 'block';
+            const container = qlStep4Fill;
             document.getElementById('ql-fill-meaning').innerText = currentGrammar.meaning;
             const input = document.getElementById('ql-fill-input');
             const skipBtn = document.getElementById('ql-skip-btn');
@@ -985,6 +1011,16 @@ function parseWordText(text) {
                     resultP.textContent = 'Chính xác!';
                     resultP.style.color = 'green';
                     input.disabled = true;
+
+                    // CẬP NHẬT THỐNG KÊ
+                    const grammarId = currentGrammar.id;
+                    if (!grammarStats[grammarId]) {
+                        grammarStats[grammarId] = { correct: 0, total: 0 };
+                    }
+                    grammarStats[grammarId].total += 1;
+                    grammarStats[grammarId].correct += 1;
+                    syncStatsToFirebase(grammarStats); // Đồng bộ ngay lập tức
+
                     hintBtn.disabled = true;
                     skipBtn.disabled = true;
                     // Tự động chuyển sang câu tiếp theo sau 1 giây
@@ -1012,6 +1048,8 @@ function parseWordText(text) {
                 // Hiển thị modal chi tiết và ví dụ
                 showGrammarDetails(skippedItem.id);
             };
+            container.style.display = 'block';
+            setTimeout(() => container.classList.add('active'), 10);
             break;
         }
     }
@@ -1112,24 +1150,46 @@ function parseWordText(text) {
     loadQuickLearnStep();
   });
 
-  // --- Logic cho nút cuộn lên đầu trang ---
-  // Hiển thị nút khi cuộn xuống 200px
-  window.onscroll = function() {
-    if (document.body.scrollTop > 200 || document.documentElement.scrollTop > 200) {
-      scrollToTopBtn.style.display = "block";
-    } else {
-      scrollToTopBtn.style.display = "none";
-    }
-  };
-
-  // Cuộn lên đầu khi nhấp vào nút
-  scrollToTopBtn.addEventListener("click", function() {
-    window.scrollTo({top: 0, behavior: 'smooth'});
-  });
-
   // Initial render of the list
   applyFiltersAndSort();
   loadAndDisplayDailyGoal();
+  applyButtonStyles(); // Áp dụng style cho các nút
+}
+
+/**
+ * Đồng bộ đối tượng grammarStats lên Firebase.
+ * @param {Object} statsData - Đối tượng thống kê cần lưu.
+ */
+export async function syncStatsToFirebase(statsData) {
+  if (!statsData) {
+    console.warn("No stats data to sync.");
+    return;
+  }
+  try {
+    const statsDocRef = doc(db, "stats", FIREBASE_STATS_DOC_ID);
+    await setDoc(statsDocRef, statsData, { merge: true }); // Dùng merge để không ghi đè toàn bộ
+    console.log("✅ Successfully synced stats to Firebase!");
+  } catch (error) {
+    console.error("❌ Error syncing stats to Firebase:", error);
+  }
+}
+
+/**
+ * Đồng bộ đối tượng learningStatus lên Firebase.
+ * @param {Object} statusData - Đối tượng trạng thái học tập cần lưu.
+ */
+export async function syncLearningStatusToFirebase(statusData) {
+  if (!statusData) {
+    console.warn("No learning status data to sync.");
+    return;
+  }
+  try {
+    const statusDocRef = doc(db, "learningStatus", FIREBASE_LEARNING_STATUS_DOC_ID);
+    await setDoc(statusDocRef, statusData);
+    console.log("✅ Successfully synced learning status to Firebase!");
+  } catch (error) {
+    console.error("❌ Error syncing learning status to Firebase:", error);
+  }
 }
 
 // Biến toàn cục để cache dữ liệu, tránh tải lại không cần thiết
@@ -1164,12 +1224,12 @@ export async function loadSharedData(forceRefresh = false) {
       appGrammarData = firebaseData.sort((a, b) => a.id - b.id); // Sắp xếp theo ID
     } else {
       // Không có dữ liệu trên Firebase, sử dụng dữ liệu từ data.js.
-      appGrammarData = [...grammarData];
+      appGrammarData = [...defaultGrammarData];
       console.log("No grammar data on Firebase. Loaded default data.");
     }
   } catch (e) {
     console.error("Error loading grammar data from Firebase. Using default data.", e);
-    appGrammarData = [...grammarData];
+    appGrammarData = [...defaultGrammarData];
   }
 
   // Load stats and learning status from Firebase
@@ -1201,9 +1261,23 @@ export async function loadSharedData(forceRefresh = false) {
 if (document.getElementById('grammar-list')) {
   document.addEventListener("DOMContentLoaded", async () => {
     const loadingOverlay = document.getElementById('loading-overlay');
+    const scrollToTopBtn = document.getElementById("scroll-to-top-btn");
+
     const { appGrammarData: data, grammarStats: stats, learningStatus: status } = await loadSharedData();
     initializeHomePage(data, stats, status);
     // Hide loading overlay
     if (loadingOverlay) loadingOverlay.classList.add('hidden');
+
+    // --- Logic cho nút cuộn lên đầu trang ---
+    window.onscroll = function() {
+      if (document.body.scrollTop > 200 || document.documentElement.scrollTop > 200) {
+        scrollToTopBtn.style.display = "block";
+      } else {
+        scrollToTopBtn.style.display = "none";
+      }
+    };
+    scrollToTopBtn.addEventListener("click", function() {
+      window.scrollTo({top: 0, behavior: 'smooth'});
+    });
   });
 }

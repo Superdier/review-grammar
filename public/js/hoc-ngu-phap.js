@@ -1,4 +1,5 @@
-import { loadSharedData } from './main.js';
+import { loadSharedData, syncStatsToFirebase, syncLearningStatusToFirebase } from './main.js';
+import { shuffle } from './utils.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
     // Get DOM elements
@@ -45,15 +46,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         setupGame();
         // Hide loading overlay
         if (loadingOverlay) loadingOverlay.classList.add('hidden');
-    }
-
-    // Function to shuffle an array
-    function shuffle(array) {
-        for (let i = array.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [array[i], array[j]] = [array[j], array[i]];
-        }
-        return array;
     }
 
     // =================================================
@@ -156,9 +148,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             // If this item was "learned", change it to "review"
             if (learningStatus[structCard.dataset.id] === 'learned') {
                 learningStatus[structCard.dataset.id] = 'review';
-                if (window.syncLearningStatusToFirebase) {
-                    window.syncLearningStatusToFirebase();
-                }
+                syncLearningStatusToFirebase(learningStatus);
             }
             setTimeout(() => {
                 // Revert to the initial state
@@ -246,9 +236,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (isCorrect) {
             stats.correct += 1;
         }
-        if (window.syncStatsToFirebase) {
-            window.syncStatsToFirebase();
-        }
+        // Sync the entire stats object to Firebase
+        syncStatsToFirebase(grammarStats);
     }
 
     function updateMCProgressBar() {
@@ -335,21 +324,4 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Load data and start the game for the first time
     loadDataAndSetup();
-
-    // --- Logic for the scroll-to-top button ---
-    const scrollToTopBtn = document.getElementById("scroll-to-top-btn");
-
-    // Show the button when scrolling down 200px
-    window.onscroll = function() {
-        if (document.body.scrollTop > 200 || document.documentElement.scrollTop > 200) {
-            scrollToTopBtn.style.display = "block";
-        } else {
-            scrollToTopBtn.style.display = "none";
-        }
-    };
-
-    // Scroll to the top when the button is clicked
-    scrollToTopBtn.addEventListener("click", function() {
-        window.scrollTo({top: 0, behavior: 'smooth'});
-    });
 });
