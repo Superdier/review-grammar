@@ -163,6 +163,18 @@ main {
     white-space: pre-wrap;
 }
 
+/* Thêm style cho các nút trong Quick Learn để đồng bộ */
+#ql-step2-mc .btn.correct,
+#ql-step4-fill .btn.correct {
+    background-color: #28a745;
+    border-color: #28a745;
+    color: white;
+}
+#ql-step2-mc .btn.incorrect {
+    background-color: #dc3545;
+    border-color: #dc3545;
+    color: white;
+}
 #ql-mc-options button {
     margin: 5px;
 }
@@ -228,7 +240,6 @@ main {
     background-color: #d4edda;
     border-color: #28a745;
     cursor: not-allowed;
-    opacity: 0.6;
 }
 
 .card.hidden {
@@ -514,4 +525,65 @@ textarea.form-control {
 @keyframes fadeOut {
     from { opacity: 1; }
     to { opacity: 0; }
+}
+
+/* ================================================== */
+/* Responsive Design for Mobile Devices */
+/* ================================================== */
+
+@media (max-width: 768px) {
+    body {
+        padding: 0;
+        font-size: 14px; /* Giảm kích thước font chữ cơ bản */
+    }
+
+    .container {
+        padding: 0;
+        border-radius: 0;
+        box-shadow: none;
+    }
+
+    main {
+        padding: 1rem;
+    }
+
+    header h1 {
+        font-size: 1.5rem;
+    }
+
+    nav a {
+        padding: 0.5rem;
+    }
+
+    /* Sắp xếp lại header của danh sách */
+    .list-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 15px;
+    }
+
+    .list-header-actions {
+        flex-direction: column;
+        width: 100%;
+        gap: 8px;
+    }
+
+    /* Sắp xếp lại các mục trong danh sách */
+    #grammar-list li {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+
+    /* Điều chỉnh thẻ trong game ghép cặp */
+    .card {
+        flex-basis: calc(50% - 10px); /* 2 thẻ trên một hàng */
+    }
+
+    /* Tăng chiều rộng modal trên màn hình nhỏ */
+    .modal-content {
+        width: 95%;
+        margin: 2.5vh auto;
+        height: 95vh;
+    }
 }

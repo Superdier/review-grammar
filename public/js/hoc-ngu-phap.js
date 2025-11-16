@@ -108,7 +108,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         const structCard = selectedStructure;
         const meanCard = selectedMeaning;
 
-        const isCorrect = structCard.dataset.id === meanCard.dataset.id;
+        // Tìm đối tượng ngữ pháp đầy đủ cho mỗi thẻ được chọn
+        const structGrammar = activeGrammarData.find(g => g.id == structCard.dataset.id);
+        const meanGrammar = activeGrammarData.find(g => g.id == meanCard.dataset.id);
+
+        // Kiểm tra xem ý nghĩa của chúng có giống nhau không, thay vì chỉ so sánh ID
+        const isCorrect = structGrammar && meanGrammar && structGrammar.meaning.trim() === meanGrammar.meaning.trim();
+
         updateStats(structCard.dataset.id, isCorrect);
 
         // Deselect to prepare for the next click
@@ -121,7 +127,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Hide the bubble after checking
         hideSelectionBubble();
 
-        if (structCard.dataset.id === meanCard.dataset.id) {
+        if (isCorrect) {
             // Correct match
             structCard.classList.add('correct');
             meanCard.classList.add('correct');
@@ -196,7 +202,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         questionArea.appendChild(questionCard);
 
         // Create the answer cards
-        const answerOptions = shuffle([...activeGrammarData]);
+        // Lấy 3 đáp án sai ngẫu nhiên
+        const wrongOptions = shuffle([...activeGrammarData])
+            .filter(g => g.id !== currentQuestion.id)
+            .slice(0, 3);
+
+        // Tạo mảng lựa chọn gồm 1 đáp án đúng và 3 đáp án sai, sau đó xáo trộn
+        const answerOptions = shuffle([...wrongOptions, currentQuestion]);
+
         answerOptions.forEach(option => {
             const answerCard = document.createElement('div');
             answerCard.className = 'card answer-card';
@@ -205,6 +218,19 @@ document.addEventListener('DOMContentLoaded', async () => {
             answerCard.addEventListener('click', () => checkAnswer(answerCard));
             answersArea.appendChild(answerCard);
         });
+
+        // Thêm nút Skip
+        const skipButton = document.createElement('button');
+        skipButton.id = 'mc-skip-button';
+        skipButton.textContent = 'Skip';
+        skipButton.className = 'btn btn-secondary'; // Sử dụng class cho đồng bộ
+        skipButton.style.marginTop = '20px';
+        skipButton.onclick = () => {
+            // Đẩy câu hỏi hiện tại vào cuối hàng đợi để làm lại sau
+            questionQueue.push(currentQuestion);
+            loadNextQuestion();
+        };
+        questionArea.appendChild(skipButton);
     }
 
     function checkAnswer(selectedCard) {
@@ -221,6 +247,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (!isCorrect) {
             selectedCard.classList.add('incorrect');
+        }
+
+        // Vô hiệu hóa nút Skip sau khi đã trả lời
+        const skipButton = document.getElementById('mc-skip-button');
+        if (skipButton) {
+            skipButton.disabled = true;
         }
 
         setTimeout(loadNextQuestion, 1500); // Wait 1.5s then load the next question

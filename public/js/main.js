@@ -253,10 +253,10 @@ function parseWordText(text) {
           continue;
         }
         if (/^Chú\s*ý[:：]?$/i.test(line)) {
-  flushBuffer();
-  currentSection = "Chú ý";
-  continue;
-}
+          flushBuffer();
+          currentSection = "Chú ý";
+          continue;
+        }
         buffer.push(line);
       }
       flushBuffer();
@@ -308,7 +308,7 @@ function parseWordText(text) {
       // Bước 3: Thực thi batch
       await batch.commit();
       console.log("✅ Successfully synced data to Firebase!");
-      showToast("Data successfully synced to Firebase!", 'success');
+      // showToast("Data successfully synced to Firebase!", 'success');
     } catch (error) {
       console.error("❌ Error syncing data to Firebase:", error);
       showToast("Error syncing data to Firebase. Check console.", 'error');
@@ -749,6 +749,182 @@ function parseWordText(text) {
   let qlNewItems = []; // Mảng chứa các mục mới trong phiên review
   let qlIsReviewSession = false; // Cờ đánh dấu phiên ôn tập
 
+  // ==================================================
+  // REFACTORED QUICK LEARN STEP DEFINITIONS
+  // ==================================================
+  const quickLearnSteps = [
+    { // Step 1: View Details
+      title: (currentIndex, totalItems) => `Step 1: View Details (${currentIndex + 1}/${totalItems})`,
+      isGroupActivity: false,
+      isNewOnly: true,
+      setup: (currentGrammar) => {
+        const container = qlStep1View;
+        container.innerHTML = `
+          <div class="ql-detail-card">
+              <h3>${currentGrammar.structure}</h3>
+              <p><strong>Meaning:</strong> ${currentGrammar.meaning}</p>
+              <p><strong>Explanation:</strong> ${currentGrammar.explanation || 'N/A'}</p>
+              <div class="ql-examples">
+                  <p><strong>Examples:</strong></p>
+                  <ul>${currentGrammar.examples.map(ex => `<li><div class="jp-example">${ex.jp}</div><div class="vi-example">${ex.vi}</div></li>`).join('') || '<li>No examples available.</li>'}</ul>
+              </div>
+              <p><strong>Note:</strong> ${currentGrammar.note || 'None'}</p>
+              <button id="ql-edit-details-btn" class="btn-secondary">Edit Details</button>
+          </div>
+        `;
+        container.querySelector('#ql-edit-details-btn').onclick = () => showGrammarDetails(currentGrammar.id);
+        return container;
+      }
+    },
+    { // Step 2: Multiple Choice
+      title: (currentIndex, totalItems) => `Step 2: Multiple Choice (${currentIndex + 1}/${totalItems})`,
+      isGroupActivity: false,
+      isNewOnly: true,
+      setup: (currentGrammar) => {
+        const container = qlStep2MC;
+        document.getElementById('ql-mc-meaning').innerText = currentGrammar.meaning;
+        const options = shuffle([...appGrammarData]).filter(g => g.id !== currentGrammar.id).slice(0, 3);
+        options.push(currentGrammar);
+        shuffle(options);
+        const optionsContainer = document.getElementById('ql-mc-options');
+        optionsContainer.innerHTML = '';
+        options.forEach(opt => {
+            const btn = document.createElement('button');
+            btn.className = 'ql-mc-option btn';
+            btn.textContent = opt.structure;
+            btn.onclick = () => {
+                optionsContainer.querySelectorAll('button').forEach(b => b.disabled = true);
+                if (opt.id === currentGrammar.id) {
+                    btn.classList.add('correct');
+                } else {
+                    btn.classList.add('incorrect');
+                    const correctBtn = Array.from(optionsContainer.querySelectorAll('button')).find(b => b.textContent === currentGrammar.structure);
+                    if (correctBtn) correctBtn.classList.add('correct');
+                }
+            };
+            optionsContainer.appendChild(btn);
+        });
+        return container;
+      }
+    },
+    { // Step 3: Pair Match
+      title: () => `Step 3: Pair Match`,
+      isGroupActivity: true,
+      isNewOnly: false,
+      setup: (currentGrammar, sessionData) => {
+        const container = qlStep3Match;
+        const board = document.getElementById('ql-match-board');        
+        const hintBtn = document.getElementById('ql-match-hint-btn');
+        board.innerHTML = '';
+        const structures = sessionData.map(item => ({ id: item.id, text: item.structure, type: 'structure' }));
+        const meanings = sessionData.map(item => ({ id: item.id, text: item.meaning, type: 'meaning' }));
+        const allCards = shuffle([...structures, ...meanings]);
+        let selected = { structure: null, meaning: null };
+        let correctCount = 0;
+        allCards.forEach(cardData => {
+            const cardEl = document.createElement('div');
+            cardEl.className = 'card';
+            cardEl.textContent = cardData.text;
+            cardEl.dataset.id = cardData.id;
+            cardEl.dataset.type = cardData.type;
+            cardEl.onclick = () => {
+                if (cardEl.classList.contains('correct')) return;
+                if (selected[cardData.type]) selected[cardData.type].classList.remove('selected');
+                selected[cardData.type] = cardEl;
+                cardEl.classList.add('selected');
+                if (selected.structure && selected.meaning) {
+                    if (selected.structure.dataset.id === selected.meaning.dataset.id) {
+                        selected.structure.classList.add('correct');
+                        selected.meaning.classList.add('correct');
+                        correctCount++;
+                        if (correctCount === sessionData.length) document.getElementById('ql-next-btn').disabled = false;
+                    } else {
+                        selected.structure.classList.add('incorrect');
+                        selected.meaning.classList.add('incorrect');
+                        setTimeout(() => {
+                            selected.structure.classList.remove('incorrect');
+                            selected.meaning.classList.remove('incorrect');
+                        }, 500);
+                    }
+                    selected.structure.classList.remove('selected');
+                    selected.meaning.classList.remove('selected');
+                    selected = { structure: null, meaning: null };
+                }
+            };
+            board.appendChild(cardEl);
+        });
+        document.getElementById('ql-next-btn').disabled = true;
+        hintBtn.onclick = () => {
+            const unsolvedCards = Array.from(board.querySelectorAll('.card:not(.correct)'));
+            if (unsolvedCards.length === 0) return;
+            const firstUnsolvedId = unsolvedCards[0].dataset.id;
+            const hintPair = board.querySelectorAll(`.card[data-id="${firstUnsolvedId}"]`);
+            hintPair.forEach(card => card.style.backgroundColor = '#ffc107');
+            setTimeout(() => hintPair.forEach(card => card.style.backgroundColor = ''), 2000);
+        };
+        return container;
+      }
+    },
+    { // Step 4: Fill in the Blank
+      title: (currentIndex, totalItems) => `Step 4: Fill in the Blank (${currentIndex + 1}/${totalItems})`,
+      isGroupActivity: false,
+      isNewOnly: false, // Áp dụng cho cả mục mới và mục ôn tập
+      setup: (currentGrammar) => {
+        const container = qlStep4Fill;
+        document.getElementById('ql-fill-meaning').innerText = currentGrammar.meaning;
+        const input = document.getElementById('ql-fill-input');
+        const skipBtn = document.getElementById('ql-skip-btn');
+        const hintBtn = document.getElementById('ql-fill-hint-btn');
+        const resultP = document.getElementById('ql-fill-result');
+        const statsSpan = document.getElementById('ql-fill-stats');
+
+        input.value = '';
+        resultP.textContent = '';
+        statsSpan.textContent = '';
+        qlNextBtn.disabled = true;
+
+        hintBtn.classList.add('btn', 'btn-secondary');
+        skipBtn.classList.add('btn', 'btn-warning');
+
+        hintBtn.onclick = () => {
+            const answer = currentGrammar.structure;
+            const currentVal = input.value;
+            const remaining = answer.split('').filter(char => !currentVal.includes(char));
+            if (remaining.length > 0) {
+                input.value += remaining[Math.floor(Math.random() * remaining.length)];
+            }
+        };
+
+        input.oninput = () => {
+            const userInput = input.value.trim();
+            const mainAnswer = getValidAnswers(currentGrammar.structure)[0] || currentGrammar.structure;
+            const similarity = calculateSimilarity(userInput, mainAnswer);
+            statsSpan.textContent = `Match: ${Math.round(similarity * 100)}%`;
+
+            if (getValidAnswers(currentGrammar.structure).includes(userInput)) {
+                resultP.textContent = 'Chính xác!';
+                resultP.style.color = 'green';
+                input.disabled = true;
+                hintBtn.disabled = true;
+                skipBtn.disabled = true;
+                qlNextBtn.disabled = false; // Kích hoạt nút Next
+                setTimeout(() => qlNextBtn.click(), 1000); // Tự động chuyển
+            }
+        };
+
+        input.disabled = false;
+        skipBtn.disabled = false;
+        hintBtn.disabled = false;
+        input.focus();
+
+        skipBtn.onclick = () => {
+            showGrammarDetails(currentGrammar.id);
+        };
+        return container;
+      }
+    }
+  ];
+
   function getTodayString() {
     return new Date().toISOString().slice(0, 10);
   }
@@ -834,224 +1010,25 @@ function parseWordText(text) {
 
     const currentGrammar = qlSessionData[qlCurrentIndex];
 
-    // Trong phiên ôn tập, nếu mục này không phải là mục mới và đang ở bước 1, 2 -> bỏ qua
+    const currentStepConfig = quickLearnSteps[qlCurrentStep];
+
+    // Trong phiên ôn tập, nếu mục này không phải là mục mới và bước này chỉ dành cho mục mới -> bỏ qua
     if (qlIsReviewSession) {
       const isNew = qlNewItems.some(item => item.id === currentGrammar.id);
-      if (!isNew && qlCurrentStep < 2) {
+      if (!isNew && currentStepConfig && currentStepConfig.isNewOnly) {
           qlNextBtn.click(); // Tự động chuyển
           return;
       }
     }
 
     // Xác định số lượng mục và tiêu đề cho từng bước
-    const newItemsCount = qlNewItems.length;
-    const totalSessionItemsCount = qlSessionData.length;
-    const stepTitles = [
-        `Step 1: View Details (${qlCurrentIndex + 1}/${newItemsCount})`,
-        `Step 2: Multiple Choice (${qlCurrentIndex + 1}/${newItemsCount})`,
-        `Step 3: Pair Match`,
-        `Step 4: Fill in the Blank (${qlCurrentIndex + 1}/${totalSessionItemsCount})`
-    ];
-    qlStepTitle.textContent = stepTitles[qlCurrentStep];
+    const itemsForTitle = currentStepConfig.isNewOnly ? qlNewItems : qlSessionData;
+    qlStepTitle.textContent = currentStepConfig ? currentStepConfig.title(qlCurrentIndex, itemsForTitle.length) : `Step ${qlCurrentStep + 1}`;
 
-    switch (qlCurrentStep) {
-      case 0: { // View Details
-            const container = qlStep1View;
-            container.innerHTML = `
-                <div class="ql-detail-card">
-                    <h3>${currentGrammar.structure}</h3>
-                    <p><strong>Meaning:</strong> ${currentGrammar.meaning}</p>
-                    <p><strong>Explanation:</strong> ${currentGrammar.explanation || 'N/A'}</p>
-                    <div class="ql-examples">
-                        <p><strong>Examples:</strong></p>
-                        <ul>${currentGrammar.examples.map(ex => `<li><div class="jp-example">${ex.jp}</div><div class="vi-example">${ex.vi}</div></li>`).join('') || '<li>No examples available.</li>'}</ul>
-                    </div>
-                    <p><strong>Note:</strong> ${currentGrammar.note || 'None'}</p>
-                    <button id="ql-edit-details-btn" class="btn-secondary">Edit Details</button>
-                </div>
-            `;
-            container.querySelector('#ql-edit-details-btn').onclick = () => showGrammarDetails(currentGrammar.id);
-            
-            // Hiển thị container một cách mượt mà
-            container.style.display = 'block';
-            setTimeout(() => container.classList.add('active'), 10);
-            break;
-        }
-        case 1: { // Multiple Choice
-            const container = qlStep2MC;
-            document.getElementById('ql-mc-meaning').innerText = currentGrammar.meaning;
-            const options = shuffle([...appGrammarData]).filter(g => g.id !== currentGrammar.id).slice(0, 3);
-            options.push(currentGrammar);
-            shuffle(options);
-            const optionsContainer = document.getElementById('ql-mc-options');
-            optionsContainer.innerHTML = '';
-            options.forEach(opt => {
-                const btn = document.createElement('button');
-                btn.className = 'ql-mc-option';
-                btn.textContent = opt.structure;
-                btn.onclick = () => {
-                    optionsContainer.querySelectorAll('button').forEach(b => b.disabled = true);
-                    if (opt.id === currentGrammar.id) {
-                        btn.classList.add('correct');
-                    } else {
-                        btn.classList.add('incorrect');
-                        // Highlight the correct one
-                        const correctBtn = Array.from(optionsContainer.querySelectorAll('button')).find(b => b.textContent === currentGrammar.structure);
-                        if (correctBtn) correctBtn.classList.add('correct');
-                    }
-                };
-                optionsContainer.appendChild(btn);
-            });
-            container.style.display = 'block';
-            setTimeout(() => container.classList.add('active'), 10);
-            break;
-        }
-        case 2: { // Pair Match
-            const container = qlStep3Match;
-            const board = document.getElementById('ql-match-board');
-            const hintBtn = document.getElementById('ql-match-hint-btn');
-            board.innerHTML = '';
-            const structures = qlSessionData.map(item => ({ id: item.id, text: item.structure, type: 'structure' }));
-            const meanings = qlSessionData.map(item => ({ id: item.id, text: item.meaning, type: 'meaning' }));
-            const allCards = shuffle([...structures, ...meanings]);
-            let selected = { structure: null, meaning: null };
-            let correctCount = 0;
-            allCards.forEach(cardData => {
-                const cardEl = document.createElement('div');
-                cardEl.className = 'card';
-                cardEl.textContent = cardData.text;
-                cardEl.dataset.id = cardData.id;
-                cardEl.dataset.type = cardData.type;
-                cardEl.onclick = () => {
-                    if (cardEl.classList.contains('correct')) return;
-                    if (selected[cardData.type]) selected[cardData.type].classList.remove('selected');
-                    selected[cardData.type] = cardEl;
-                    cardEl.classList.add('selected');
-                    if (selected.structure && selected.meaning) {
-                        if (selected.structure.dataset.id === selected.meaning.dataset.id) {
-                            selected.structure.classList.add('correct');
-                            selected.meaning.classList.add('correct');
-                            correctCount++;
-                            if (correctCount === qlSessionData.length) qlNextBtn.disabled = false;
-                        } else {
-                            selected.structure.classList.add('incorrect');
-                            selected.meaning.classList.add('incorrect');
-                            setTimeout(() => {
-                                selected.structure.classList.remove('incorrect');
-                                selected.meaning.classList.remove('incorrect');
-                            }, 500);
-                        }
-                        selected.structure.classList.remove('selected');
-                        selected.meaning.classList.remove('selected');
-                        selected = { structure: null, meaning: null };
-                    }
-                };
-                board.appendChild(cardEl);
-            });
-            qlNextBtn.disabled = true;
-
-            // Logic cho nút Gợi ý
-            hintBtn.onclick = () => {
-                // Tìm một cặp chưa được ghép đúng
-                const unsolvedCards = Array.from(board.querySelectorAll('.card:not(.correct)'));
-                if (unsolvedCards.length === 0) return;
-
-                const firstUnsolvedId = unsolvedCards[0].dataset.id;
-                const hintStructureCard = board.querySelector(`.card[data-id="${firstUnsolvedId}"][data-type="structure"]`);
-                const hintMeaningCard = board.querySelector(`.card[data-id="${firstUnsolvedId}"][data-type="meaning"]`);
-
-                if (hintStructureCard && hintMeaningCard) {
-                    // Làm nổi bật cặp gợi ý trong 2 giây
-                    hintStructureCard.style.backgroundColor = '#ffc107'; // Màu vàng
-                    hintMeaningCard.style.backgroundColor = '#ffc107';
-                    setTimeout(() => {
-                        hintStructureCard.style.backgroundColor = ''; // Trở về màu cũ
-                        hintMeaningCard.style.backgroundColor = '';
-                    }, 2000);
-                }
-            };
-            container.style.display = 'block';
-            setTimeout(() => container.classList.add('active'), 10);
-            break;
-        }
-        case 3: { // Fill Blank
-            const container = qlStep4Fill;
-            document.getElementById('ql-fill-meaning').innerText = currentGrammar.meaning;
-            const input = document.getElementById('ql-fill-input');
-            const skipBtn = document.getElementById('ql-skip-btn');
-            const hintBtn = document.getElementById('ql-fill-hint-btn');
-            const resultP = document.getElementById('ql-fill-result');
-            const statsSpan = document.getElementById('ql-fill-stats');
-            input.value = '';
-            resultP.textContent = '';
-            statsSpan.textContent = '';
-            qlNextBtn.disabled = true;
-
-            hintBtn.onclick = () => {
-                const answer = currentGrammar.structure;
-                const currentVal = input.value;
-                const remaining = answer.split('').filter(char => !currentVal.includes(char));
-                if (remaining.length > 0) {
-                    input.value += remaining[Math.floor(Math.random() * remaining.length)];
-                }
-            };
-            input.oninput = () => {
-                const userInput = input.value.trim();
-                const mainAnswer = getValidAnswers(currentGrammar.structure)[0] || currentGrammar.structure;
-
-                // Tính và hiển thị độ tương đồng
-                const similarity = calculateSimilarity(userInput, mainAnswer);
-                const percentage = Math.round(similarity * 100);
-                statsSpan.textContent = `Match: ${percentage}%`;
-
-
-                const validAnswers = getValidAnswers(currentGrammar.structure);
-
-                if (validAnswers.includes(userInput)) {
-                    resultP.textContent = 'Chính xác!';
-                    resultP.style.color = 'green';
-                    input.disabled = true;
-
-                    // CẬP NHẬT THỐNG KÊ
-                    const grammarId = currentGrammar.id;
-                    if (!grammarStats[grammarId]) {
-                        grammarStats[grammarId] = { correct: 0, total: 0 };
-                    }
-                    grammarStats[grammarId].total += 1;
-                    grammarStats[grammarId].correct += 1;
-                    syncStatsToFirebase(grammarStats); // Đồng bộ ngay lập tức
-
-                    hintBtn.disabled = true;
-                    skipBtn.disabled = true;
-                    // Tự động chuyển sang câu tiếp theo sau 1 giây
-                    setTimeout(() => {
-                        // Tạm thời kích hoạt nút để cho phép click lập trình
-                        qlNextBtn.disabled = false; 
-                        qlNextBtn.click();
-                    }, 1000);
-                }
-            };
-            input.disabled = false;
-            skipBtn.disabled = false;
-            hintBtn.disabled = false;
-            // Tự động focus vào ô input để người dùng có thể gõ ngay
-            input.focus();
-
-            skipBtn.onclick = () => {
-                // Đánh dấu là đã bỏ qua
-                wasSkippedInQuickLearn = true;
-
-                // Chuyển câu hỏi này xuống cuối danh sách của phiên học
-                const skippedItem = qlSessionData.splice(qlCurrentIndex, 1)[0];
-                qlSessionData.push(skippedItem);
-
-                // Hiển thị modal chi tiết và ví dụ
-                showGrammarDetails(skippedItem.id);
-            };
-            container.style.display = 'block';
-            setTimeout(() => container.classList.add('active'), 10);
-            break;
-        }
+    if (currentStepConfig) {
+      const container = currentStepConfig.setup(currentGrammar, qlSessionData);
+      container.style.display = 'block';
+      setTimeout(() => container.classList.add('active'), 10);
     }
   }
 
@@ -1107,17 +1084,17 @@ function parseWordText(text) {
   qlNextBtn.addEventListener('click', () => {
     qlCurrentIndex++;
 
-    // Xác định số lượng mục cho bước hiện tại
-    const itemsForThisStep = (qlIsReviewSession && qlCurrentStep < 2) ? qlNewItems : qlSessionData;
+    const currentStepConfig = quickLearnSteps[qlCurrentStep] || {};
+    const itemsForThisStep = currentStepConfig.isGroupActivity ? [1] : (currentStepConfig.isNewOnly ? qlNewItems : qlSessionData);
 
     // Nếu đã xong 1 bước cho tất cả ngữ pháp (hoặc nếu là bước ghép cặp)
-    if (qlCurrentIndex >= itemsForThisStep.length || qlCurrentStep === 2) {
+    if (qlCurrentIndex >= itemsForThisStep.length) {
       qlCurrentIndex = 0; 
       qlCurrentStep++;    
     }
     
     // Nếu đã hoàn thành tất cả các bước
-    if (qlCurrentStep >= 4) {
+    if (qlCurrentStep >= quickLearnSteps.length) {
       // Đánh dấu tất cả là đã học
       // Chỉ đánh dấu các mục mới là "learned"
       qlNewItems.forEach(grammar => {
@@ -1134,10 +1111,10 @@ function parseWordText(text) {
       localStorage.setItem(DAILY_GOAL_KEY, JSON.stringify(goalData));
       updateDailyGoalProgress();
 
-      showToast(`Session complete! You learned ${qlSessionData.length} items.`, 'success');
+      // showToast(`Session complete! You learned ${qlSessionData.length} items.`, 'success');
 
       localStorage.setItem(LEARNING_STATUS_KEY, JSON.stringify(learningStatus));
-      syncLearningStatusToFirebase(); // Đồng bộ trạng thái học lên Firebase
+      syncLearningStatusToFirebase(learningStatus); // Đồng bộ trạng thái học lên Firebase
 
       quickLearnContainer.style.display = 'none';
       // Hiển thị các lựa chọn cho phiên tiếp theo thay vì nút bắt đầu mặc định
@@ -1154,43 +1131,44 @@ function parseWordText(text) {
   applyFiltersAndSort();
   loadAndDisplayDailyGoal();
   applyButtonStyles(); // Áp dụng style cho các nút
+
+  /**
+   * Đồng bộ đối tượng grammarStats lên Firebase.
+   * @param {Object} statsData - Đối tượng thống kê cần lưu.
+   */
+  async function syncStatsToFirebase(statsData) {
+    if (!statsData) {
+      console.warn("No stats data to sync.");
+      return;
+    }
+    try {
+      const statsDocRef = doc(db, "stats", FIREBASE_STATS_DOC_ID);
+      await setDoc(statsDocRef, statsData, { merge: true }); // Dùng merge để không ghi đè toàn bộ
+      console.log("✅ Successfully synced stats to Firebase!");
+    } catch (error) {
+      console.error("❌ Error syncing stats to Firebase:", error);
+    }
+  }
+
+  /**
+   * Đồng bộ đối tượng learningStatus lên Firebase.
+   * @param {Object} statusData - Đối tượng trạng thái học tập cần lưu.
+   */
+  async function syncLearningStatusToFirebase(statusData) {
+    if (!statusData) {
+      console.warn("No learning status data to sync.");
+      return;
+    }
+    try {
+      const statusDocRef = doc(db, "learningStatus", FIREBASE_LEARNING_STATUS_DOC_ID);
+      await setDoc(statusDocRef, statusData);
+      console.log("✅ Successfully synced learning status to Firebase!");
+    } catch (error) {
+      console.error("❌ Error syncing learning status to Firebase:", error);
+    }
+  }
 }
 
-/**
- * Đồng bộ đối tượng grammarStats lên Firebase.
- * @param {Object} statsData - Đối tượng thống kê cần lưu.
- */
-export async function syncStatsToFirebase(statsData) {
-  if (!statsData) {
-    console.warn("No stats data to sync.");
-    return;
-  }
-  try {
-    const statsDocRef = doc(db, "stats", FIREBASE_STATS_DOC_ID);
-    await setDoc(statsDocRef, statsData, { merge: true }); // Dùng merge để không ghi đè toàn bộ
-    console.log("✅ Successfully synced stats to Firebase!");
-  } catch (error) {
-    console.error("❌ Error syncing stats to Firebase:", error);
-  }
-}
-
-/**
- * Đồng bộ đối tượng learningStatus lên Firebase.
- * @param {Object} statusData - Đối tượng trạng thái học tập cần lưu.
- */
-export async function syncLearningStatusToFirebase(statusData) {
-  if (!statusData) {
-    console.warn("No learning status data to sync.");
-    return;
-  }
-  try {
-    const statusDocRef = doc(db, "learningStatus", FIREBASE_LEARNING_STATUS_DOC_ID);
-    await setDoc(statusDocRef, statusData);
-    console.log("✅ Successfully synced learning status to Firebase!");
-  } catch (error) {
-    console.error("❌ Error syncing learning status to Firebase:", error);
-  }
-}
 
 // Biến toàn cục để cache dữ liệu, tránh tải lại không cần thiết
 let cachedData = null;
@@ -1198,6 +1176,7 @@ let cachedData = null;
 /**
  * Tải tất cả dữ liệu cần thiết từ Firebase (grammar, stats, learningStatus).
  * Sử dụng cơ chế cache để chỉ tải từ Firebase một lần.
+ * @param {boolean} forceRefresh - Nếu true, sẽ bỏ qua cache và tải lại từ Firebase.
  * @param {boolean} forceRefresh - Nếu true, sẽ bỏ qua cache và tải lại từ Firebase.
  * @returns {Promise<{appGrammarData: Array, grammarStats: Object, learningStatus: Object}>}
  */
@@ -1212,6 +1191,10 @@ export async function loadSharedData(forceRefresh = false) {
   let grammarStats = {};
   let learningStatus = {};
 
+  // --- Tải dữ liệu từ Local Storage trước để có thể dùng offline ---
+  const localGrammarData = JSON.parse(localStorage.getItem("jlptGrammarData"));
+  const localStats = JSON.parse(localStorage.getItem("grammarStats"));
+  const localLearningStatus = JSON.parse(localStorage.getItem("learningStatus"));
   try {
     // Tải dữ liệu ngữ pháp từ Firebase
     const querySnapshot = await getDocs(collection(db, "grammar"));
@@ -1222,14 +1205,20 @@ export async function loadSharedData(forceRefresh = false) {
 
     if (firebaseData.length > 0) {
       appGrammarData = firebaseData.sort((a, b) => a.id - b.id); // Sắp xếp theo ID
+      localStorage.setItem("jlptGrammarData", JSON.stringify(appGrammarData)); // Cập nhật cache
+    } else if (localGrammarData) {
+      appGrammarData = localGrammarData;
+      console.log("Loaded grammar data from localStorage.");
     } else {
       // Không có dữ liệu trên Firebase, sử dụng dữ liệu từ data.js.
       appGrammarData = [...defaultGrammarData];
       console.log("No grammar data on Firebase. Loaded default data.");
     }
   } catch (e) {
+    // Nếu lỗi mạng, ưu tiên dùng localStorage
+    if (localGrammarData) appGrammarData = localGrammarData;
     console.error("Error loading grammar data from Firebase. Using default data.", e);
-    appGrammarData = [...defaultGrammarData];
+    if (appGrammarData.length === 0) appGrammarData = [...defaultGrammarData];
   }
 
   // Load stats and learning status from Firebase
@@ -1238,6 +1227,10 @@ export async function loadSharedData(forceRefresh = false) {
     const statsDocSnap = await getDoc(statsDocRef);
     if (statsDocSnap.exists()) {
       grammarStats = statsDocSnap.data();
+      localStorage.setItem("grammarStats", JSON.stringify(grammarStats)); // Cập nhật cache
+    } else if (localStats) {
+      grammarStats = localStats;
+      console.log("Loaded stats from localStorage.");
     } else {
       console.log("No grammar stats found on Firebase. Initializing empty stats.");
     }
@@ -1246,10 +1239,16 @@ export async function loadSharedData(forceRefresh = false) {
     const learningStatusDocSnap = await getDoc(learningStatusDocRef);
     if (learningStatusDocSnap.exists()) {
       learningStatus = learningStatusDocSnap.data();
+      localStorage.setItem("learningStatus", JSON.stringify(learningStatus)); // Cập nhật cache
+    } else if (localLearningStatus) {
+      learningStatus = localLearningStatus;
+      console.log("Loaded learning status from localStorage.");
     } else {
       console.log("No learning status found on Firebase. Initializing empty status.");
     }
   } catch (e) {
+    if (localStats) grammarStats = localStats;
+    if (localLearningStatus) learningStatus = localLearningStatus;
     console.error("Error loading stats/learning status from Firebase.", e);
   }
 
