@@ -5,96 +5,102 @@ import { collection, getDocs, writeBatch, doc, setDoc, getDoc } from "https://ww
 
 const FIREBASE_STATS_DOC_ID = "userStats";
 const FIREBASE_LEARNING_STATUS_DOC_ID = "userLearningStatus";
+const FIREBASE_DAILY_GOAL_DOC_ID = "userDailyGoal"; // Thêm hằng số mới
 
-function initializeHomePage(initialData, initialStats, initialLearningStatus) {
-  
-  // --- Lấy các phần tử DOM ---
-  // Danh sách chính
-  const grammarListUl = document.getElementById("grammar-ul");
-  const addNewGrammarBtn = document.getElementById("add-new-grammar-btn");
-  const sortOptions = document.getElementById("sort-options");
-  const filterStatus = document.getElementById("filter-status");
-  const searchInput = document.getElementById("search-input");
+// --- Local Storage Keys ---
+const DATA_STORAGE_KEY = "jlptGrammarData";
+const STATS_STORAGE_KEY = "grammarStats";
+const LEARNING_STATUS_KEY = "learningStatus";
+const DAILY_GOAL_KEY = "dailyGoal";
 
-  // Quản lý dữ liệu
-  const fileInput = document.getElementById("word-file-input");
-  const exportJsonBtn = document.getElementById("export-json-btn");
-  const importJsonInput = document.getElementById("import-json-input");
-  const clearStorageButton = document.getElementById("clear-storage-button");
+function initializeHomePage(initialData, initialStats, initialLearningStatus, initialDailyGoal) {
 
-  // Modal chi tiết/sửa
-  const modal = document.getElementById("grammar-modal");
-  const closeModalButton = document.querySelector(".close-button");
-  const modalViewMode = document.getElementById("modal-view-mode");
-  const modalEditMode = document.getElementById("modal-edit-mode");
-  const editButton = document.getElementById("modal-edit-btn");
-  const deleteButton = document.getElementById("modal-delete-btn");
-  const saveButton = document.getElementById("modal-save-btn");
-  const cancelButton = document.getElementById("modal-cancel-btn");
+  // --- Gom nhóm các phần tử DOM ---
+  const dom = {
+    // Danh sách chính
+    grammarListUl: document.getElementById("grammar-ul"),
+    addNewGrammarBtn: document.getElementById("add-new-grammar-btn"),
+    sortOptions: document.getElementById("sort-options"),
+    filterStatus: document.getElementById("filter-status"),
+    searchInput: document.getElementById("search-input"),
 
-  // Mục tiêu hàng ngày
-  const dailyGoalInput = document.getElementById('daily-goal-input');
-  const learnedTodayCountSpan = document.getElementById('learned-today-count');
-  const dailyGoalTargetSpan = document.getElementById('daily-goal-target');
-  const dailyGoalProgressBar = document.getElementById('daily-goal-progress-bar');
+    // Quản lý dữ liệu
+    fileInput: document.getElementById("word-file-input"),
+    exportJsonBtn: document.getElementById("export-json-btn"),
+    importJsonInput: document.getElementById("import-json-input"),
+    clearStorageButton: document.getElementById("clear-storage-button"),
 
-  // Học nhanh (Quick Learn)
-  const startQuickLearnBtn = document.getElementById('start-quick-learn-btn');
-  const nextSessionOptions = document.getElementById('next-session-options');
-  const startNextSessionBtn = document.getElementById('start-next-session-btn');
-  const quickLearnContainer = document.getElementById('quick-learn-container');
-  const qlProgressBar = document.getElementById('quick-learn-progress-bar');
-  const qlStepTitle = document.getElementById('quick-learn-step-title');
-  const qlNextBtn = document.getElementById('ql-next-btn');
-  const qlStepContainers = document.querySelectorAll('.ql-step-container');
-  const qlStep1View = document.getElementById('ql-step1-view');
-  const qlStep2MC = document.getElementById('ql-step2-mc');
-  const qlStep3Match = document.getElementById('ql-step3-match');
-  const qlStep4Fill = document.getElementById('ql-step4-fill');
+    // Modal chi tiết/sửa
+    modal: document.getElementById("grammar-modal"),
+    closeModalButton: document.querySelector(".close-button"),
+    modalViewMode: document.getElementById("modal-view-mode"),
+    modalEditMode: document.getElementById("modal-edit-mode"),
+    editButton: document.getElementById("modal-edit-btn"),
+    deleteButton: document.getElementById("modal-delete-btn"),
+    saveButton: document.getElementById("modal-save-btn"),
+    cancelButton: document.getElementById("modal-cancel-btn"),
 
-  // Scroll to top button
-  const scrollToTopBtn = document.getElementById("scroll-to-top-btn");
+    // Mục tiêu hàng ngày
+    dailyGoalInput: document.getElementById('daily-goal-input'),
+    learnedTodayCountSpan: document.getElementById('learned-today-count'),
+    dailyGoalTargetSpan: document.getElementById('daily-goal-target'),
+    dailyGoalProgressBar: document.getElementById('daily-goal-progress-bar'),
+    learnedTodayListDiv: document.getElementById('learned-today-list'),
+
+    // Học nhanh (Quick Learn)
+    startQuickLearnBtn: document.getElementById('start-quick-learn-btn'),
+    nextSessionOptions: document.getElementById('next-session-options'),
+    startNextSessionBtn: document.getElementById('start-next-session-btn'),
+    quickLearnContainer: document.getElementById('quick-learn-container'),
+    qlProgressBar: document.getElementById('quick-learn-progress-bar'),
+    qlStepTitle: document.getElementById('quick-learn-step-title'),
+    qlNextBtn: document.getElementById('ql-next-btn'),
+    qlStepContainers: document.querySelectorAll('.ql-step-container'),
+    qlStep1View: document.getElementById('ql-step1-view'),
+    qlStep2MC: document.getElementById('ql-step2-mc'),
+    qlStep3Match: document.getElementById('ql-step3-match'),
+    qlStep4Fill: document.getElementById('ql-step4-fill'),
+
+    // Scroll to top button
+    scrollToTopBtn: document.getElementById("scroll-to-top-btn"),
+  };
 
   // Biến để lưu ID của ngữ pháp đang được xem/sửa
   let currentEditingId = null;
 
-  let wasSkippedInQuickLearn = false; // Flag để xử lý việc bỏ qua câu hỏi
-  const DATA_STORAGE_KEY = "jlptGrammarData";
-  const STATS_STORAGE_KEY = "grammarStats";
-  const LEARNING_STATUS_KEY = "learningStatus";
-  const DAILY_GOAL_KEY = "dailyGoal";
   
   // Global variables for grammar data
   let appGrammarData = initialData || [];
   let grammarStats = initialStats || {};
   let learningStatus = initialLearningStatus || {};
+  let dailyGoalData = initialDailyGoal || {};
 
   // Hàm để áp dụng các lớp CSS cho các nút để có giao diện đồng bộ
   function applyButtonStyles() {
     // Nút hành động chính
-    addNewGrammarBtn?.classList.add('btn', 'btn-primary');
-    saveButton?.classList.add('btn', 'btn-primary');
-    startQuickLearnBtn?.classList.add('btn', 'btn-primary');
-    startNextSessionBtn?.classList.add('btn', 'btn-primary');
-    qlNextBtn?.classList.add('btn', 'btn-primary');
+    dom.addNewGrammarBtn?.classList.add('btn', 'btn-primary');
+    dom.saveButton?.classList.add('btn', 'btn-primary');
+    dom.startQuickLearnBtn?.classList.add('btn', 'btn-primary');
+    dom.startNextSessionBtn?.classList.add('btn', 'btn-primary');
+    dom.qlNextBtn?.classList.add('btn', 'btn-primary');
 
     // Nút hành động phụ
-    editButton?.classList.add('btn', 'btn-secondary');
-    cancelButton?.classList.add('btn', 'btn-secondary');
-    exportJsonBtn?.classList.add('btn', 'btn-secondary');
+    dom.editButton?.classList.add('btn', 'btn-secondary');
+    dom.cancelButton?.classList.add('btn', 'btn-secondary');
+    dom.exportJsonBtn?.classList.add('btn', 'btn-secondary');
     document.querySelector('label[for="import-json-input"]')?.classList.add('btn', 'btn-secondary');
     document.querySelector('label[for="word-file-input"]')?.classList.add('btn', 'btn-secondary');
 
     // Nút hành động nguy hiểm
-    deleteButton?.classList.add('btn', 'btn-danger');
-    clearStorageButton?.classList.add('btn', 'btn-danger');
+    dom.deleteButton?.classList.add('btn', 'btn-danger');
+    dom.clearStorageButton?.classList.add('btn', 'btn-danger');
   }
   
   // Global variable to store IDs learned today, initialized here
   let learnedTodayIds = new Set();
 
   function renderGrammarList(data) {
-    grammarListUl.innerHTML = ""; // Clear old list
+    dom.grammarListUl.innerHTML = ""; // Clear old list
     data.forEach((grammar) => {
       const li = document.createElement("li");
       const button = document.createElement("button");
@@ -111,11 +117,11 @@ function initializeHomePage(initialData, initialStats, initialLearningStatus) {
                 <span><strong>${grammar.structure}</strong>: ${grammar.meaning}</span>${statusBadge}
             `;
       li.appendChild(button);
-      grammarListUl.appendChild(li);
+      dom.grammarListUl.appendChild(li);
     });
   }
 
-  fileInput.addEventListener("change", function (event) {
+  dom.fileInput.addEventListener("change", function (event) {
     const file = event.target.files[0];
     if (!file) {
       return;
@@ -371,16 +377,16 @@ function parseWordText(text) {
     });
 
     // Hiển thị modal
-    modalViewMode.style.display = "block";
-    modalEditMode.style.display = "none";
+    dom.modalViewMode.style.display = "block";
+    dom.modalEditMode.style.display = "none";
     // Đặt lại trạng thái các nút ở footer khi mở modal
-    editButton.style.display = "inline-block";
-    deleteButton.style.display = "inline-block";
-    saveButton.style.display = "none";
-    cancelButton.style.display = "none";
+    dom.editButton.style.display = "inline-block";
+    dom.deleteButton.style.display = "inline-block";
+    dom.saveButton.style.display = "none";
+    dom.cancelButton.style.display = "none";
 
     document.body.classList.add("modal-open");
-    modal.style.display = "block";
+    dom.modal.style.display = "block";
   }
 
   function saveGrammarChanges() {
@@ -485,15 +491,15 @@ function parseWordText(text) {
     // Mở modal ở chế độ sửa
     switchToEditMode();
     document.body.classList.add("modal-open");
-    modal.style.display = "block";
+    dom.modal.style.display = "block";
   }
 
   function closeModal() {
     document.body.classList.remove("modal-open");
-    modal.style.display = "none";
+    dom.modal.style.display = "none";
     // Nếu đang trong phiên học nhanh, tải lại bước hiện tại để cập nhật thông tin
     // isQuickLearningActive là một biến tạm để kiểm tra
-    if (quickLearnContainer.style.display === 'block') {
+    if (dom.quickLearnContainer.style.display === 'block') {
       if (wasSkippedInQuickLearn) {
         wasSkippedInQuickLearn = false;
         loadQuickLearnStep(); // Tải câu tiếp theo sau khi bỏ qua
@@ -505,48 +511,47 @@ function parseWordText(text) {
   }
 
   function switchToEditMode() {
-    modalViewMode.style.display = "none";
-    modalEditMode.style.display = "block";
+    dom.modalViewMode.style.display = "none";
+    dom.modalEditMode.style.display = "block";
     // Ẩn/hiện các nút ở footer
-    editButton.style.display = "none";
-    deleteButton.style.display = "none";
-    saveButton.style.display = "inline-block";
-    cancelButton.style.display = "inline-block";
+    dom.editButton.style.display = "none";
+    dom.deleteButton.style.display = "none";
+    dom.saveButton.style.display = "inline-block";
+    dom.cancelButton.style.display = "inline-block";
   }
 
   function switchToViewMode() {
     // Chuyển về chế độ xem
-    modalEditMode.style.display = "none";
-    modalViewMode.style.display = "block";
+    dom.modalEditMode.style.display = "none";
+    dom.modalViewMode.style.display = "block";
     // Đặt lại các nút ở footer
-    editButton.style.display = "inline-block";
-    deleteButton.style.display = "inline-block";
-    saveButton.style.display = "none";
-    cancelButton.style.display = "none";
+    dom.editButton.style.display = "inline-block";
+    dom.deleteButton.style.display = "inline-block";
+    dom.saveButton.style.display = "none";
+    dom.cancelButton.style.display = "none";
   }
 
-  // Gán sự kiện đóng modal
-  closeModalButton.addEventListener("click", closeModal);
-  window.addEventListener("click", (event) => {
-    if (event.target == modal) {
-      closeModal();
-    }
-  });
-
-  // Gán sự kiện cho các nút trong modal
-  editButton.addEventListener("click", switchToEditMode);
-  saveButton.addEventListener("click", saveGrammarChanges);
-  deleteButton.addEventListener("click", deleteCurrentGrammar);
-  cancelButton.addEventListener("click", switchToViewMode);
-  addNewGrammarBtn.addEventListener("click", openModalForNewGrammar);
+  function initializeModal() {
+    dom.closeModalButton.addEventListener("click", closeModal);
+    window.addEventListener("click", (event) => {
+      if (event.target == dom.modal) {
+        closeModal();
+      }
+    });
+    dom.editButton.addEventListener("click", switchToEditMode);
+    dom.saveButton.addEventListener("click", saveGrammarChanges);
+    dom.deleteButton.addEventListener("click", deleteCurrentGrammar);
+    dom.cancelButton.addEventListener("click", switchToViewMode);
+    dom.addNewGrammarBtn.addEventListener("click", openModalForNewGrammar);
+  }
 
   function applyFiltersAndSort() {
     let filteredData = [...appGrammarData];
 
     // 1. Lọc theo trạng thái
     // 1. Lọc theo từ khóa tìm kiếm
-    const searchTerm = searchInput ? searchInput.value.toLowerCase().trim() : "";
-    if (searchTerm && searchInput) {
+    const searchTerm = dom.searchInput ? dom.searchInput.value.toLowerCase().trim() : "";
+    if (searchTerm && dom.searchInput) {
       filteredData = filteredData.filter(g =>
         g.structure.toLowerCase().includes(searchTerm) ||
         g.meaning.toLowerCase().includes(searchTerm) ||
@@ -557,8 +562,8 @@ function parseWordText(text) {
 
 
     // 2. Lọc theo trạng thái
-    const filterValue = filterStatus ? filterStatus.value : 'all';
-    if (filterStatus && filterValue !== 'all') {
+    const filterValue = dom.filterStatus ? dom.filterStatus.value : 'all';
+    if (dom.filterStatus && filterValue !== 'all') {
       filteredData = filteredData.filter(g => {
         const status = learningStatus[g.id];
         if (filterValue === 'learned') return status === 'learned'; // Filter: Learned
@@ -570,7 +575,7 @@ function parseWordText(text) {
 
     // 2. Sắp xếp
     // 3. Sắp xếp
-    const sortBy = sortOptions.value;
+    const sortBy = dom.sortOptions.value;
     switch (sortBy) {
       case 'az':
         filteredData.sort((a, b) => a.structure.localeCompare(b.structure, 'ja'));
@@ -588,11 +593,11 @@ function parseWordText(text) {
     renderGrammarList(filteredData);
   }
 
-  if (sortOptions) sortOptions.addEventListener("change", applyFiltersAndSort);
-  if (filterStatus) filterStatus.addEventListener("change", applyFiltersAndSort);
-  if (searchInput) searchInput.addEventListener("input", applyFiltersAndSort);
+  dom.sortOptions?.addEventListener("change", applyFiltersAndSort);
+  dom.filterStatus?.addEventListener("change", applyFiltersAndSort);
+  dom.searchInput?.addEventListener("input", applyFiltersAndSort);
 
-  // --- Logic cho Import/Export JSON ---
+  // --- Logic cho Quản lý Dữ liệu ---
 
   function exportToJson() {
     if (appGrammarData.length === 0) {
@@ -645,57 +650,60 @@ function parseWordText(text) {
     reader.readAsText(file);
   }
 
-  exportJsonBtn.addEventListener("click", exportToJson);
-  importJsonInput.addEventListener("change", importFromJson);
+  function initializeDataManagement() {
+    dom.exportJsonBtn.addEventListener("click", exportToJson);
+    dom.importJsonInput.addEventListener("change", importFromJson);
 
-  clearStorageButton.addEventListener("click", function () {
-    if (
-      confirm(
-        "Are you sure you want to delete uploaded data and revert to the original data?"
-      )
-    ) {
-      localStorage.removeItem(DATA_STORAGE_KEY);
-      localStorage.removeItem(STATS_STORAGE_KEY); // Xóa cả thống kê
-      showToast("Data cleared. Reloading page...", 'success');
-      window.location.reload();
-    }
-  });
+    dom.clearStorageButton.addEventListener("click", function () {
+      if (
+        confirm(
+          "Are you sure you want to delete uploaded data and revert to the original data?"
+        )
+      ) {
+        localStorage.removeItem(DATA_STORAGE_KEY);
+        localStorage.removeItem(STATS_STORAGE_KEY); // Xóa cả thống kê
+        showToast("Data cleared. Reloading page...", 'success');
+        window.location.reload();
+      }
+    });
+  }
 
   function loadAndDisplayDailyGoal() {
     const today = getTodayString();
-    let goalData = JSON.parse(localStorage.getItem(DAILY_GOAL_KEY)) || {};
 
     // Nếu sang ngày mới, reset learnedIds
-    if (goalData.date !== today) {
-      goalData.date = today;
-      goalData.learnedIds = [];
+    if (dailyGoalData.date !== today) {
+      dailyGoalData.date = today;
+      dailyGoalData.learnedIds = [];
+      // Đồng bộ trạng thái reset của ngày mới lên Firebase
+      syncDailyGoalToFirebase(dailyGoalData);
     }
 
-    const goal = goalData.goal || 5;
-    const learnedIds = new Set(goalData.learnedIds || []);
+    const goal = dailyGoalData.goal || 5;
+    const learnedIds = new Set(dailyGoalData.learnedIds || []);
 
-    dailyGoalInput.value = goal;
+    dom.dailyGoalInput.value = goal;
     learnedTodayIds = learnedIds; // Cập nhật biến toàn cục
 
-    localStorage.setItem(DAILY_GOAL_KEY, JSON.stringify(goalData));
+    localStorage.setItem(DAILY_GOAL_KEY, JSON.stringify(dailyGoalData));
     updateDailyGoalProgress();
 
     // Nếu đã học ít nhất 1 ngữ pháp hôm nay, hiển thị tùy chọn phiên tiếp theo
     if (learnedTodayIds.size > 0) {
-      startQuickLearnBtn.style.display = 'none';
-      nextSessionOptions.style.display = 'block';
+      dom.startQuickLearnBtn.style.display = 'none';
+      dom.nextSessionOptions.style.display = 'block';
     }
   }
 
   function updateDailyGoalProgress() {
-    const goal = parseInt(dailyGoalInput.value, 10);
+    const goal = parseInt(dom.dailyGoalInput.value, 10);
     const learnedCount = learnedTodayIds.size;
     const percentage = goal > 0 ? Math.min(Math.round((learnedCount / goal) * 100), 100) : 0;
 
-    learnedTodayCountSpan.textContent = learnedCount;
-    dailyGoalTargetSpan.textContent = goal;
-    dailyGoalProgressBar.style.width = `${percentage}%`;
-    dailyGoalProgressBar.textContent = `${percentage}%`;
+    dom.learnedTodayCountSpan.textContent = learnedCount;
+    dom.dailyGoalTargetSpan.textContent = goal;
+    dom.dailyGoalProgressBar.style.width = `${percentage}%`;
+    dom.dailyGoalProgressBar.textContent = `${percentage}%`;
 
     // Cho phép chọn số lượng ngữ pháp tùy ý sau khi hoàn thành mục tiêu
     const quickLearnCountInput = document.getElementById('quick-learn-count');
@@ -708,9 +716,7 @@ function parseWordText(text) {
     }
 
     // Cập nhật danh sách các ngữ pháp đã học hôm nay
-    const learnedTodayListDiv = document.getElementById('learned-today-list');
-    const learnedTodayListContainer = document.getElementById('learned-today-list-container');
-    learnedTodayListDiv.innerHTML = ''; // Xóa nội dung cũ
+    dom.learnedTodayListDiv.innerHTML = ''; // Xóa nội dung cũ
 
     if (learnedTodayIds.size > 0) {
         const learnedItems = Array.from(learnedTodayIds)
@@ -723,21 +729,23 @@ function parseWordText(text) {
             badge.textContent = g.structure;
             badge.style.cursor = 'pointer';
             badge.onclick = () => showGrammarDetails(g.id);
-            learnedTodayListDiv.appendChild(badge);
+            dom.learnedTodayListDiv.appendChild(badge);
         });
     } else {
-        learnedTodayListDiv.innerHTML = '<span style="color: #888;">No grammar yet.</span>';
+        dom.learnedTodayListDiv.innerHTML = '<span style="color: #888;">No grammar yet.</span>';
     }
   }
 
-  dailyGoalInput.addEventListener('change', () => {
-    const newGoal = parseInt(dailyGoalInput.value, 10);
-    let goalData = JSON.parse(localStorage.getItem(DAILY_GOAL_KEY)) || {};
-    goalData.goal = newGoal;
-    localStorage.setItem(DAILY_GOAL_KEY, JSON.stringify(goalData));
-    updateDailyGoalProgress();
-    showToast(`Daily goal updated to ${newGoal}.`, 'success');
-  });
+  function initializeDailyGoal() {
+    dom.dailyGoalInput.addEventListener('change', () => {
+      const newGoal = parseInt(dom.dailyGoalInput.value, 10);
+      dailyGoalData.goal = newGoal;
+      localStorage.setItem(DAILY_GOAL_KEY, JSON.stringify(dailyGoalData)); // Vẫn lưu local để truy cập nhanh
+      updateDailyGoalProgress();
+      syncDailyGoalToFirebase(dailyGoalData); // Đồng bộ thay đổi lên Firebase
+      showToast(`Daily goal updated to ${newGoal}.`, 'success');
+    });
+  }
   // ==================================================
   // LOGIC CHO QUICK LEARN
   // =================================================
@@ -758,7 +766,7 @@ function parseWordText(text) {
       isGroupActivity: false,
       isNewOnly: true,
       setup: (currentGrammar) => {
-        const container = qlStep1View;
+        const container = dom.qlStep1View;
         container.innerHTML = `
           <div class="ql-detail-card">
               <h3>${currentGrammar.structure}</h3>
@@ -781,7 +789,7 @@ function parseWordText(text) {
       isGroupActivity: false,
       isNewOnly: true,
       setup: (currentGrammar) => {
-        const container = qlStep2MC;
+        const container = dom.qlStep2MC;
         document.getElementById('ql-mc-meaning').innerText = currentGrammar.meaning;
         const options = shuffle([...appGrammarData]).filter(g => g.id !== currentGrammar.id).slice(0, 3);
         options.push(currentGrammar);
@@ -812,7 +820,7 @@ function parseWordText(text) {
       isGroupActivity: true,
       isNewOnly: false,
       setup: (currentGrammar, sessionData) => {
-        const container = qlStep3Match;
+        const container = dom.qlStep3Match;
         const board = document.getElementById('ql-match-board');        
         const hintBtn = document.getElementById('ql-match-hint-btn');
         board.innerHTML = '';
@@ -837,7 +845,7 @@ function parseWordText(text) {
                         selected.structure.classList.add('correct');
                         selected.meaning.classList.add('correct');
                         correctCount++;
-                        if (correctCount === sessionData.length) document.getElementById('ql-next-btn').disabled = false;
+                        if (correctCount === sessionData.length) dom.qlNextBtn.disabled = false;
                     } else {
                         selected.structure.classList.add('incorrect');
                         selected.meaning.classList.add('incorrect');
@@ -853,7 +861,7 @@ function parseWordText(text) {
             };
             board.appendChild(cardEl);
         });
-        document.getElementById('ql-next-btn').disabled = true;
+        dom.qlNextBtn.disabled = true;
         hintBtn.onclick = () => {
             const unsolvedCards = Array.from(board.querySelectorAll('.card:not(.correct)'));
             if (unsolvedCards.length === 0) return;
@@ -870,7 +878,7 @@ function parseWordText(text) {
       isGroupActivity: false,
       isNewOnly: false, // Áp dụng cho cả mục mới và mục ôn tập
       setup: (currentGrammar) => {
-        const container = qlStep4Fill;
+        const container = dom.qlStep4Fill;
         document.getElementById('ql-fill-meaning').innerText = currentGrammar.meaning;
         const input = document.getElementById('ql-fill-input');
         const skipBtn = document.getElementById('ql-skip-btn');
@@ -881,7 +889,7 @@ function parseWordText(text) {
         input.value = '';
         resultP.textContent = '';
         statsSpan.textContent = '';
-        qlNextBtn.disabled = true;
+        dom.qlNextBtn.disabled = true;
 
         hintBtn.classList.add('btn', 'btn-secondary');
         skipBtn.classList.add('btn', 'btn-warning');
@@ -907,15 +915,10 @@ function parseWordText(text) {
                 input.disabled = true;
                 hintBtn.disabled = true;
                 skipBtn.disabled = true;
-                qlNextBtn.disabled = false; // Kích hoạt nút Next
-                setTimeout(() => qlNextBtn.click(), 1000); // Tự động chuyển
+                dom.qlNextBtn.disabled = false; // Kích hoạt nút Next
+                setTimeout(() => dom.qlNextBtn.click(), 1000); // Tự động chuyển
             }
         };
-
-        input.disabled = false;
-        skipBtn.disabled = false;
-        hintBtn.disabled = false;
-        input.focus();
 
         skipBtn.onclick = () => {
             showGrammarDetails(currentGrammar.id);
@@ -976,24 +979,26 @@ function parseWordText(text) {
     
     qlCurrentIndex = 0;
     qlCurrentStep = 0;
-    quickLearnContainer.style.display = 'block';
-    startQuickLearnBtn.style.display = 'none';
-    nextSessionOptions.style.display = 'none';
+    dom.quickLearnContainer.style.display = 'block';
+    dom.startQuickLearnBtn.style.display = 'none';
+    dom.nextSessionOptions.style.display = 'none';
 
     loadQuickLearnStep();
   }
 
-  startQuickLearnBtn.addEventListener('click', startLearnSession);
-  startNextSessionBtn.addEventListener('click', startLearnSession);
+  function initializeQuickLearn() {
+    dom.startQuickLearnBtn.addEventListener('click', startLearnSession);
+    dom.startNextSessionBtn.addEventListener('click', startLearnSession);
+  }
 
   function updateQLProgress() {
     const totalItems = qlSessionData.length * 4; // 5 grammars * 4 steps
     const completedItems = qlCurrentStep * qlSessionData.length + qlCurrentIndex;
     const percentage = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
-    qlProgressBar.style.width = `${percentage}%`;
-    qlProgressBar.textContent = `Progress: ${completedItems} / ${totalItems}`;
+    dom.qlProgressBar.style.width = `${percentage}%`;
+    dom.qlProgressBar.textContent = `Progress: ${completedItems} / ${totalItems}`;
   }
-
+  
   function loadQuickLearnStep() {
     updateQLProgress();
     // Ẩn container hiện tại một cách mượt mà
@@ -1003,8 +1008,8 @@ function parseWordText(text) {
     }
 
     // Ẩn tất cả các container để chuẩn bị cho cái tiếp theo
-    qlStepContainers.forEach(c => c.style.display = 'none'); // Vẫn cần để reset
-    qlNextBtn.disabled = false;
+    dom.qlStepContainers.forEach(c => c.style.display = 'none'); // Vẫn cần để reset
+    dom.qlNextBtn.disabled = false;
 
     if (!qlSessionData[qlCurrentIndex]) return; // Guard against invalid index
 
@@ -1016,19 +1021,26 @@ function parseWordText(text) {
     if (qlIsReviewSession) {
       const isNew = qlNewItems.some(item => item.id === currentGrammar.id);
       if (!isNew && currentStepConfig && currentStepConfig.isNewOnly) {
-          qlNextBtn.click(); // Tự động chuyển
+          dom.qlNextBtn.click(); // Tự động chuyển
           return;
       }
     }
 
     // Xác định số lượng mục và tiêu đề cho từng bước
     const itemsForTitle = currentStepConfig.isNewOnly ? qlNewItems : qlSessionData;
-    qlStepTitle.textContent = currentStepConfig ? currentStepConfig.title(qlCurrentIndex, itemsForTitle.length) : `Step ${qlCurrentStep + 1}`;
+    dom.qlStepTitle.textContent = currentStepConfig ? currentStepConfig.title(qlCurrentIndex, itemsForTitle.length) : `Step ${qlCurrentStep + 1}`;
 
     if (currentStepConfig) {
       const container = currentStepConfig.setup(currentGrammar, qlSessionData);
+      // Reset và chuẩn bị hiển thị
       container.style.display = 'block';
-      setTimeout(() => container.classList.add('active'), 10);
+      
+      // Thêm class 'active' để kích hoạt hiệu ứng và focus vào input (nếu có) sau một khoảng trễ ngắn
+      setTimeout(() => {
+        container.classList.add('active');
+        const inputToFocus = container.querySelector('#ql-fill-input');
+        if (inputToFocus) inputToFocus.focus();
+      }, 10);
     }
   }
 
@@ -1081,7 +1093,7 @@ function parseWordText(text) {
       return Array.from(answers).filter(Boolean); // Lọc ra các chuỗi rỗng
   }
 
-  qlNextBtn.addEventListener('click', () => {
+  dom.qlNextBtn.addEventListener('click', () => {
     qlCurrentIndex++;
 
     const currentStepConfig = quickLearnSteps[qlCurrentStep] || {};
@@ -1105,21 +1117,20 @@ function parseWordText(text) {
       justLearnedIds.forEach(id => learnedTodayIds.add(id));
 
       // Cập nhật và lưu tiến độ mục tiêu hàng ngày
-      let goalData = JSON.parse(localStorage.getItem(DAILY_GOAL_KEY)) || {};
-      goalData.date = getTodayString();
-      goalData.learnedIds = Array.from(learnedTodayIds);
-      localStorage.setItem(DAILY_GOAL_KEY, JSON.stringify(goalData));
+      dailyGoalData.date = getTodayString();
+      dailyGoalData.learnedIds = Array.from(learnedTodayIds);
+      localStorage.setItem(DAILY_GOAL_KEY, JSON.stringify(dailyGoalData));
       updateDailyGoalProgress();
-
+      syncDailyGoalToFirebase(dailyGoalData); // Đồng bộ tiến độ hàng ngày lên Firebase
       // showToast(`Session complete! You learned ${qlSessionData.length} items.`, 'success');
 
       localStorage.setItem(LEARNING_STATUS_KEY, JSON.stringify(learningStatus));
       syncLearningStatusToFirebase(learningStatus); // Đồng bộ trạng thái học lên Firebase
 
-      quickLearnContainer.style.display = 'none';
+      dom.quickLearnContainer.style.display = 'none';
       // Hiển thị các lựa chọn cho phiên tiếp theo thay vì nút bắt đầu mặc định
-      startQuickLearnBtn.style.display = 'none';
-      nextSessionOptions.style.display = 'block';
+      dom.startQuickLearnBtn.style.display = 'none';
+      dom.nextSessionOptions.style.display = 'block';
 
       applyFiltersAndSort(); // Render lại danh sách để cập nhật trạng thái
       return;
@@ -1127,10 +1138,18 @@ function parseWordText(text) {
     loadQuickLearnStep();
   });
 
-  // Initial render of the list
+  // --- KHỞI TẠO ---
+  // Render danh sách ban đầu
   applyFiltersAndSort();
+  // Tải và hiển thị mục tiêu hàng ngày
   loadAndDisplayDailyGoal();
-  applyButtonStyles(); // Áp dụng style cho các nút
+  // Áp dụng style cho các nút
+  applyButtonStyles();
+  // Gán các sự kiện
+  initializeDataManagement();
+  initializeModal();
+  initializeDailyGoal();
+  initializeQuickLearn();
 
   /**
    * Đồng bộ đối tượng grammarStats lên Firebase.
@@ -1167,6 +1186,24 @@ function parseWordText(text) {
       console.error("❌ Error syncing learning status to Firebase:", error);
     }
   }
+
+  /**
+   * Đồng bộ đối tượng dailyGoalData lên Firebase.
+   * @param {Object} goalData - Đối tượng mục tiêu hàng ngày cần lưu.
+   */
+  async function syncDailyGoalToFirebase(goalData) {
+    if (!goalData) {
+      console.warn("No daily goal data to sync.");
+      return;
+    }
+    try {
+      const goalDocRef = doc(db, "dailyGoals", FIREBASE_DAILY_GOAL_DOC_ID);
+      await setDoc(goalDocRef, goalData);
+      console.log("✅ Successfully synced daily goal to Firebase!");
+    } catch (error) {
+      console.error("❌ Error syncing daily goal to Firebase:", error);
+    }
+  }
 }
 
 
@@ -1177,8 +1214,7 @@ let cachedData = null;
  * Tải tất cả dữ liệu cần thiết từ Firebase (grammar, stats, learningStatus).
  * Sử dụng cơ chế cache để chỉ tải từ Firebase một lần.
  * @param {boolean} forceRefresh - Nếu true, sẽ bỏ qua cache và tải lại từ Firebase.
- * @param {boolean} forceRefresh - Nếu true, sẽ bỏ qua cache và tải lại từ Firebase.
- * @returns {Promise<{appGrammarData: Array, grammarStats: Object, learningStatus: Object}>}
+ * @returns {Promise<{appGrammarData: Array, grammarStats: Object, learningStatus: Object, dailyGoal: Object}>}
  */
 export async function loadSharedData(forceRefresh = false) {
   if (cachedData && !forceRefresh) {
@@ -1190,11 +1226,13 @@ export async function loadSharedData(forceRefresh = false) {
   let appGrammarData = [];
   let grammarStats = {};
   let learningStatus = {};
+  let dailyGoal = {};
 
   // --- Tải dữ liệu từ Local Storage trước để có thể dùng offline ---
-  const localGrammarData = JSON.parse(localStorage.getItem("jlptGrammarData"));
-  const localStats = JSON.parse(localStorage.getItem("grammarStats"));
-  const localLearningStatus = JSON.parse(localStorage.getItem("learningStatus"));
+  const localGrammarData = JSON.parse(localStorage.getItem(DATA_STORAGE_KEY));
+  const localStats = JSON.parse(localStorage.getItem(STATS_STORAGE_KEY));
+  const localLearningStatus = JSON.parse(localStorage.getItem(LEARNING_STATUS_KEY));
+  const localDailyGoal = JSON.parse(localStorage.getItem(DAILY_GOAL_KEY));
   try {
     // Tải dữ liệu ngữ pháp từ Firebase
     const querySnapshot = await getDocs(collection(db, "grammar"));
@@ -1205,7 +1243,7 @@ export async function loadSharedData(forceRefresh = false) {
 
     if (firebaseData.length > 0) {
       appGrammarData = firebaseData.sort((a, b) => a.id - b.id); // Sắp xếp theo ID
-      localStorage.setItem("jlptGrammarData", JSON.stringify(appGrammarData)); // Cập nhật cache
+      localStorage.setItem(DATA_STORAGE_KEY, JSON.stringify(appGrammarData)); // Cập nhật cache
     } else if (localGrammarData) {
       appGrammarData = localGrammarData;
       console.log("Loaded grammar data from localStorage.");
@@ -1227,7 +1265,7 @@ export async function loadSharedData(forceRefresh = false) {
     const statsDocSnap = await getDoc(statsDocRef);
     if (statsDocSnap.exists()) {
       grammarStats = statsDocSnap.data();
-      localStorage.setItem("grammarStats", JSON.stringify(grammarStats)); // Cập nhật cache
+      localStorage.setItem(STATS_STORAGE_KEY, JSON.stringify(grammarStats)); // Cập nhật cache
     } else if (localStats) {
       grammarStats = localStats;
       console.log("Loaded stats from localStorage.");
@@ -1239,20 +1277,33 @@ export async function loadSharedData(forceRefresh = false) {
     const learningStatusDocSnap = await getDoc(learningStatusDocRef);
     if (learningStatusDocSnap.exists()) {
       learningStatus = learningStatusDocSnap.data();
-      localStorage.setItem("learningStatus", JSON.stringify(learningStatus)); // Cập nhật cache
+      localStorage.setItem(LEARNING_STATUS_KEY, JSON.stringify(learningStatus)); // Cập nhật cache
     } else if (localLearningStatus) {
       learningStatus = localLearningStatus;
       console.log("Loaded learning status from localStorage.");
     } else {
       console.log("No learning status found on Firebase. Initializing empty status.");
     }
+
+    const dailyGoalDocRef = doc(db, "dailyGoals", FIREBASE_DAILY_GOAL_DOC_ID);
+    const dailyGoalDocSnap = await getDoc(dailyGoalDocRef);
+    if (dailyGoalDocSnap.exists()) {
+      dailyGoal = dailyGoalDocSnap.data();
+      localStorage.setItem(DAILY_GOAL_KEY, JSON.stringify(dailyGoal)); // Cập nhật cache
+    } else if (localDailyGoal) {
+      dailyGoal = localDailyGoal;
+      console.log("Loaded daily goal from localStorage.");
+    } else {
+      console.log("No daily goal found on Firebase. Initializing empty goal data.");
+    }
   } catch (e) {
     if (localStats) grammarStats = localStats;
     if (localLearningStatus) learningStatus = localLearningStatus;
+    if (localDailyGoal) dailyGoal = localDailyGoal;
     console.error("Error loading stats/learning status from Firebase.", e);
   }
 
-  cachedData = { appGrammarData, grammarStats, learningStatus };
+  cachedData = { appGrammarData, grammarStats, learningStatus, dailyGoal };
   return cachedData;
 }
 
@@ -1261,9 +1312,8 @@ if (document.getElementById('grammar-list')) {
   document.addEventListener("DOMContentLoaded", async () => {
     const loadingOverlay = document.getElementById('loading-overlay');
     const scrollToTopBtn = document.getElementById("scroll-to-top-btn");
-
-    const { appGrammarData: data, grammarStats: stats, learningStatus: status } = await loadSharedData();
-    initializeHomePage(data, stats, status);
+    const { appGrammarData: data, grammarStats: stats, learningStatus: status, dailyGoal: goal } = await loadSharedData();
+    initializeHomePage(data, stats, status, goal);
     // Hide loading overlay
     if (loadingOverlay) loadingOverlay.classList.add('hidden');
 
