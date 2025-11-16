@@ -67,6 +67,7 @@ function initializeHomePage(initialData, initialStats, initialLearningStatus, in
 
   // Biến để lưu ID của ngữ pháp đang được xem/sửa
   let currentEditingId = null;
+  let wasSkippedInQuickLearn = false; // Flag để xử lý việc bỏ qua câu hỏi
 
   
   // Global variables for grammar data
@@ -498,13 +499,9 @@ function parseWordText(text) {
     document.body.classList.remove("modal-open");
     dom.modal.style.display = "none";
     // Nếu đang trong phiên học nhanh, tải lại bước hiện tại để cập nhật thông tin
-    // isQuickLearningActive là một biến tạm để kiểm tra
     if (dom.quickLearnContainer.style.display === 'block') {
-      if (wasSkippedInQuickLearn) {
-        wasSkippedInQuickLearn = false;
-        loadQuickLearnStep(); // Tải câu tiếp theo sau khi bỏ qua
-      } else if (currentEditingId !== 'new') {
-        loadQuickLearnStep(); // Tải lại câu hiện tại sau khi sửa
+      if (currentEditingId !== 'new') {
+        loadQuickLearnStep(); // Tải lại câu hiện tại sau khi sửa hoặc bỏ qua
       }
     }
     currentEditingId = null;
@@ -886,6 +883,11 @@ function parseWordText(text) {
         const resultP = document.getElementById('ql-fill-result');
         const statsSpan = document.getElementById('ql-fill-stats');
 
+        // Reset trạng thái cho câu hỏi mới
+        input.disabled = false;
+        hintBtn.disabled = false;
+        skipBtn.disabled = false;
+
         input.value = '';
         resultP.textContent = '';
         statsSpan.textContent = '';
@@ -920,13 +922,24 @@ function parseWordText(text) {
             }
         };
 
-        skipBtn.onclick = () => {
-            showGrammarDetails(currentGrammar.id);
-        };
+        skipBtn.onclick = () => handleSkipQuestion(currentGrammar.id);
         return container;
       }
     }
   ];
+
+  /**
+   * Xử lý việc bỏ qua một câu hỏi trong Quick Learn.
+   * Di chuyển câu hỏi bị bỏ qua xuống cuối hàng đợi và hiển thị chi tiết.
+   * @param {number} grammarId - ID của ngữ pháp bị bỏ qua.
+   */
+  function handleSkipQuestion(grammarId) {
+    const itemToSkip = qlSessionData.splice(qlCurrentIndex, 1)[0];
+    if (itemToSkip) {
+      qlSessionData.push(itemToSkip);
+    }
+    showGrammarDetails(grammarId);
+  }
 
   function getTodayString() {
     return new Date().toISOString().slice(0, 10);
@@ -1035,11 +1048,19 @@ function parseWordText(text) {
       // Reset và chuẩn bị hiển thị
       container.style.display = 'block';
       
-      // Thêm class 'active' để kích hoạt hiệu ứng và focus vào input (nếu có) sau một khoảng trễ ngắn
+      // Thêm class 'active' để kích hoạt hiệu ứng fade-in
       setTimeout(() => {
         container.classList.add('active');
-        const inputToFocus = container.querySelector('#ql-fill-input');
-        if (inputToFocus) inputToFocus.focus();
+
+        // Lắng nghe sự kiện transition kết thúc để đảm bảo focus hoạt động ổn định
+        const onTransitionEnd = () => {
+          const inputToFocus = container.querySelector('#ql-fill-input');
+          if (inputToFocus) {
+            inputToFocus.focus();
+          }
+          container.removeEventListener('transitionend', onTransitionEnd); // Dọn dẹp listener
+        };
+        container.addEventListener('transitionend', onTransitionEnd);
       }, 10);
     }
   }
