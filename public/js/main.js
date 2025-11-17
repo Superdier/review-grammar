@@ -269,7 +269,7 @@ function parseWordText(text) {
       flushBuffer();
 
       grammarArray.push({
-        id: index + 1,
+        id: String(index + 1), // Chuyển ID thành chuỗi
         structure,
         meaning,
         explanation,
@@ -419,7 +419,7 @@ function parseWordText(text) {
 
     if (currentEditingId === 'new') {
       // Thêm mới
-      const newId = appGrammarData.length > 0 ? Math.max(...appGrammarData.map(g => g.id)) + 1 : 1;
+      const newId = appGrammarData.length > 0 ? Math.max(...appGrammarData.map(g => Number(g.id))) + 1 : 1;
       const newGrammar = {
         id: newId,
         structure: newStructure,
@@ -495,10 +495,21 @@ function parseWordText(text) {
     dom.modal.style.display = "block";
   }
 
+  /**
+   * Xử lý sự kiện nhấn nút Cancel trong modal.
+   * Nếu đang thêm mới, đóng modal. Nếu đang sửa, quay lại chế độ xem.
+   */
+  function handleCancelClick() {
+    if (currentEditingId === 'new') {
+      closeModal();
+    } else {
+      switchToViewMode();
+    }
+  }
+
   function closeModal() {
     document.body.classList.remove("modal-open");
     dom.modal.style.display = "none";
-    // Nếu đang trong phiên học nhanh, tải lại bước hiện tại để cập nhật thông tin
     if (dom.quickLearnContainer.style.display === 'block') {
       if (currentEditingId !== 'new') {
         loadQuickLearnStep(); // Tải lại câu hiện tại sau khi sửa hoặc bỏ qua
@@ -538,7 +549,7 @@ function parseWordText(text) {
     dom.editButton.addEventListener("click", switchToEditMode);
     dom.saveButton.addEventListener("click", saveGrammarChanges);
     dom.deleteButton.addEventListener("click", deleteCurrentGrammar);
-    dom.cancelButton.addEventListener("click", switchToViewMode);
+    dom.cancelButton.addEventListener("click", handleCancelClick);
     dom.addNewGrammarBtn.addEventListener("click", openModalForNewGrammar);
   }
 
@@ -1171,60 +1182,6 @@ function parseWordText(text) {
   initializeModal();
   initializeDailyGoal();
   initializeQuickLearn();
-
-  /**
-   * Đồng bộ đối tượng grammarStats lên Firebase.
-   * @param {Object} statsData - Đối tượng thống kê cần lưu.
-   */
-  async function syncStatsToFirebase(statsData) {
-    if (!statsData) {
-      console.warn("No stats data to sync.");
-      return;
-    }
-    try {
-      const statsDocRef = doc(db, "stats", FIREBASE_STATS_DOC_ID);
-      await setDoc(statsDocRef, statsData, { merge: true }); // Dùng merge để không ghi đè toàn bộ
-      console.log("✅ Successfully synced stats to Firebase!");
-    } catch (error) {
-      console.error("❌ Error syncing stats to Firebase:", error);
-    }
-  }
-
-  /**
-   * Đồng bộ đối tượng learningStatus lên Firebase.
-   * @param {Object} statusData - Đối tượng trạng thái học tập cần lưu.
-   */
-  async function syncLearningStatusToFirebase(statusData) {
-    if (!statusData) {
-      console.warn("No learning status data to sync.");
-      return;
-    }
-    try {
-      const statusDocRef = doc(db, "learningStatus", FIREBASE_LEARNING_STATUS_DOC_ID);
-      await setDoc(statusDocRef, statusData);
-      console.log("✅ Successfully synced learning status to Firebase!");
-    } catch (error) {
-      console.error("❌ Error syncing learning status to Firebase:", error);
-    }
-  }
-
-  /**
-   * Đồng bộ đối tượng dailyGoalData lên Firebase.
-   * @param {Object} goalData - Đối tượng mục tiêu hàng ngày cần lưu.
-   */
-  async function syncDailyGoalToFirebase(goalData) {
-    if (!goalData) {
-      console.warn("No daily goal data to sync.");
-      return;
-    }
-    try {
-      const goalDocRef = doc(db, "dailyGoals", FIREBASE_DAILY_GOAL_DOC_ID);
-      await setDoc(goalDocRef, goalData);
-      console.log("✅ Successfully synced daily goal to Firebase!");
-    } catch (error) {
-      console.error("❌ Error syncing daily goal to Firebase:", error);
-    }
-  }
 }
 
 
@@ -1326,6 +1283,60 @@ export async function loadSharedData(forceRefresh = false) {
 
   cachedData = { appGrammarData, grammarStats, learningStatus, dailyGoal };
   return cachedData;
+}
+
+/**
+ * Đồng bộ đối tượng grammarStats lên Firebase.
+ * @param {Object} statsData - Đối tượng thống kê cần lưu.
+ */
+export async function syncStatsToFirebase(statsData) {
+  if (!statsData) {
+    console.warn("No stats data to sync.");
+    return;
+  }
+  try {
+    const statsDocRef = doc(db, "stats", FIREBASE_STATS_DOC_ID);
+    await setDoc(statsDocRef, statsData, { merge: true }); // Dùng merge để không ghi đè toàn bộ
+    console.log("✅ Successfully synced stats to Firebase!");
+  } catch (error) {
+    console.error("❌ Error syncing stats to Firebase:", error);
+  }
+}
+
+/**
+ * Đồng bộ đối tượng learningStatus lên Firebase.
+ * @param {Object} statusData - Đối tượng trạng thái học tập cần lưu.
+ */
+export async function syncLearningStatusToFirebase(statusData) {
+  if (!statusData) {
+    console.warn("No learning status data to sync.");
+    return;
+  }
+  try {
+    const statusDocRef = doc(db, "learningStatus", FIREBASE_LEARNING_STATUS_DOC_ID);
+    await setDoc(statusDocRef, statusData);
+    console.log("✅ Successfully synced learning status to Firebase!");
+  } catch (error) {
+    console.error("❌ Error syncing learning status to Firebase:", error);
+  }
+}
+
+/**
+ * Đồng bộ đối tượng dailyGoalData lên Firebase.
+ * @param {Object} goalData - Đối tượng mục tiêu hàng ngày cần lưu.
+ */
+export async function syncDailyGoalToFirebase(goalData) {
+  if (!goalData) {
+    console.warn("No daily goal data to sync.");
+    return;
+  }
+  try {
+    const goalDocRef = doc(db, "dailyGoals", FIREBASE_DAILY_GOAL_DOC_ID);
+    await setDoc(goalDocRef, goalData);
+    console.log("✅ Successfully synced daily goal to Firebase!");
+  } catch (error) {
+    console.error("❌ Error syncing daily goal to Firebase:", error);
+  }
 }
 
 // Chỉ chạy logic của trang chủ nếu chúng ta đang ở trên trang index.html

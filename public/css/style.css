@@ -189,6 +189,7 @@ main {
     padding: 1rem;
     background-color: #e9ecef;
     border-radius: 8px;
+    color: #212529; /* Tăng độ tương phản cho văn bản */
 }
 
 .game-options {
@@ -212,6 +213,12 @@ main {
     gap: 15px; /* Khoảng cách giữa các thẻ */
     min-height: 400px;
 }
+/* Đảm bảo thẻ trong game luôn có nền trắng và chữ đen */
+.flashcard-area .card {
+    background-color: #fff;
+    color: #212529; /* Màu đen đậm hơn để tăng độ tương phản */
+}
+
 
 /* Ghi đè lại style của class .card cũ để tránh xung đột với thẻ lật */
 .card {
@@ -234,12 +241,14 @@ main {
 .card.selected {
     background-color: #aed6f1;
     border-color: #4a90e2;
+    color: #154360; /* Chữ màu xanh đậm hơn */
 }
 
 .card.correct {
     background-color: #d4edda;
     border-color: #28a745;
     cursor: not-allowed;
+    color: #145A32; /* Chữ màu xanh lá đậm hơn */
 }
 
 .card.hidden {
@@ -250,6 +259,7 @@ main {
     background-color: #f8d7da;
     border-color: #dc3545;
     animation: shake 0.5s;
+    color: #78281F; /* Chữ màu đỏ đậm hơn */
 }
 
 @keyframes shake {

@@ -115,15 +115,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Kiểm tra xem ý nghĩa của chúng có giống nhau không, thay vì chỉ so sánh ID
         const isCorrect = structGrammar && meanGrammar && structGrammar.meaning.trim() === meanGrammar.meaning.trim();
 
-        updateStats(structCard.dataset.id, isCorrect);
-
-        // Deselect to prepare for the next click
-        selectedStructure = null;
-        selectedMeaning = null;
-        // Remove 'selected' class from both cards
-        structCard.classList.remove('selected');
-        meanCard.classList.remove('selected');
-
         // Hide the bubble after checking
         hideSelectionBubble();
 
@@ -131,6 +122,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             // Correct match
             structCard.classList.add('correct');
             meanCard.classList.add('correct');
+            updateStats(structCard.dataset.id, true); // Cập nhật là ĐÚNG
             correctPairs++;
             updateProgressCounter();
 
@@ -150,18 +142,21 @@ document.addEventListener('DOMContentLoaded', async () => {
             // Incorrect match
             structCard.classList.add('incorrect'); // Turn red
             meanCard.classList.add('incorrect');
+            updateStats(structCard.dataset.id, false); // Cập nhật là SAI cho thẻ cấu trúc
 
-            // If this item was "learned", change it to "review"
-            if (learningStatus[structCard.dataset.id] === 'learned') {
-                learningStatus[structCard.dataset.id] = 'review';
-                syncLearningStatusToFirebase(learningStatus);
-            }
             setTimeout(() => {
                 // Revert to the initial state
                 structCard.classList.remove('incorrect');
                 meanCard.classList.remove('incorrect');
             }, 500);
         }
+
+        // Deselect to prepare for the next click
+        selectedStructure = null;
+        selectedMeaning = null;
+        // Remove 'selected' class from both cards
+        structCard.classList.remove('selected');
+        meanCard.classList.remove('selected');
     }
 
     // =================================================
@@ -191,9 +186,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         currentQuestion = questionQueue.shift();
-
-        // Create the question card
-        showSelectionBubble(currentQuestion.structure); // Show the question in the bubble
 
         const questionCard = document.createElement('div');
         questionCard.className = 'card question-card';
@@ -268,6 +260,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (isCorrect) {
             stats.correct += 1;
         }
+
+        // KIỂM TRA ĐIỀU KIỆN CHUYỂN VỀ "REVIEW"
+        // Nếu mục này đã "learned" và số lần sai vượt quá 3
+        const incorrectCount = stats.total - stats.correct;
+        if (learningStatus[grammarId] === 'learned' && incorrectCount > 3) {
+            learningStatus[grammarId] = 'review'; // Chuyển trạng thái
+            syncLearningStatusToFirebase(learningStatus); // Đồng bộ trạng thái học
+            // Gửi thông báo cho người dùng
+            const grammarItem = activeGrammarData.find(g => g.id == grammarId);
+            if (grammarItem) {
+                showToast(`"${grammarItem.structure}" moved to Review due to multiple errors.`, 'error');
+            }
+        }
+
         // Sync the entire stats object to Firebase
         syncStatsToFirebase(grammarStats);
     }
