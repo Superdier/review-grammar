@@ -460,25 +460,51 @@ function applyFiltersAndSort() {
   else if (sortBy === 'za') filtered.sort((a, b) => b.structure.localeCompare(a.structure, 'ja'));
   else filtered.sort((a, b) => a.id - b.id);
 
-  renderGrammarList(filtered);
+  renderGrammarList(filtered, searchTerm);
 }
 
-function renderGrammarList(data) {
+function renderGrammarList(data, searchTerm = "") {
   if (!dom.grammarListUl) return;
   
   dom.grammarListUl.innerHTML = '';
   data.forEach(g => {
     const li = document.createElement('li');
+    li.className = 'grammar-list-item';
+
+    // Main content
+    const mainInfo = document.createElement('div');
+    mainInfo.className = 'grammar-item-main';
+    
+    // Highlight function
+    const highlight = (text, term) => {
+      if (!term || !text) return text;
+      const regex = new RegExp(`(${term.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')})`, 'gi');
+      return text.replace(regex, '<mark>$1</mark>');
+    };
+    const structureHTML = highlight(g.structure, searchTerm);
+    const meaningHTML = highlight(g.meaning, searchTerm);
     const status = learningStatus[g.id];
     const badge = status ? ` <span class="badge ${status}">${status === 'learned' ? 'Learned' : 'Review'}</span>` : '';
-    
+    mainInfo.innerHTML = `<span><strong>${structureHTML}</strong>: ${meaningHTML}${badge}</span>`;
+
+    // Stats and Actions
+    const sideInfo = document.createElement('div');
+    sideInfo.className = 'grammar-item-side';
+
+    const stats = grammarStats[g.id];
+    const correctRate = (stats && stats.total > 0) 
+      ? `${Math.round((stats.correct / stats.total) * 100)}%` 
+      : 'N/A';
+    sideInfo.innerHTML = `<span class="correct-rate">${correctRate}</span>`;
+
     const button = document.createElement('button');
     button.className = 'btn btn-secondary btn-sm';
     button.textContent = 'View Details';
     button.addEventListener('click', () => showGrammarDetails(g.id));
-    
-    li.innerHTML = `<span><strong>${g.structure}</strong>: ${g.meaning}${badge}</span>`;
-    li.appendChild(button);
+    sideInfo.appendChild(button);
+
+    li.appendChild(mainInfo);
+    li.appendChild(sideInfo);
     dom.grammarListUl.appendChild(li);
   });
 }
@@ -535,11 +561,20 @@ function updateDailyGoalProgress() {
       .map(id => appGrammarData.find(g => g.id === id))
       .filter(Boolean);
   
-    dom.learnedTodayListDiv.innerHTML = learnedItems.length > 0
-      ? learnedItems.map(g => 
-          `<span class="badge learned" style="cursor: pointer;" onclick="showGrammarDetails('${g.id}')">${g.structure}</span>`
-        ).join('')
-      : '<span style="color: #888;">Chưa học.</span>';
+    dom.learnedTodayListDiv.innerHTML = ''; // Clear previous items
+    if (learnedItems.length > 0) {
+      learnedItems.forEach(g => {
+        const badge = document.createElement('span');
+        badge.className = 'badge learned';
+        badge.style.cursor = 'pointer';
+        badge.textContent = g.structure;
+        badge.dataset.grammarId = g.id;
+        badge.addEventListener('click', () => showGrammarDetails(g.id));
+        dom.learnedTodayListDiv.appendChild(badge);
+      });
+    } else {
+      dom.learnedTodayListDiv.innerHTML = '<span style="color: #888;">Chưa học.</span>';
+    }
   }
 }
 
@@ -1247,7 +1282,3 @@ async function syncSingleGrammarItemToFirebase(item) {
     showToast(`Lỗi đồng bộ ${item.structure}.`, 'error');
   }
 }
-
-// ============= MAKE FUNCTIONS GLOBAL FOR HTML =============
-// This allows onclick="showGrammarDetails('id')" to work in HTML
-window.showGrammarDetails = showGrammarDetails;
