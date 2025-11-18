@@ -19,6 +19,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // State Variables
     let activeGrammarData = [];
+    let allGrammarData = []; // To store the original full list
     let currentMode = 'pair-match';
     let selectedStructure = null;
     let selectedMeaning = null;
@@ -36,7 +37,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     async function loadDataAndSetup() {
         try {
             const data = await loadSharedData();
-            activeGrammarData = data.appGrammarData;
+            allGrammarData = data.appGrammarData;
+            activeGrammarData = [...allGrammarData]; // Start with all data
             grammarStats = data.grammarStats;
             learningStatus = data.learningStatus;
             setupGame();
@@ -44,6 +46,26 @@ document.addEventListener('DOMContentLoaded', async () => {
         } catch (error) {
             console.error('Error loading data:', error);
             if (loadingOverlay) loadingOverlay.classList.add('hidden');
+        }
+    }
+
+    function applyGameModeFilter() {
+        const gameMode = document.querySelector('input[name="game-mode"]:checked')?.value || 'pair-match';
+        if (gameMode === 'practice-weak-points') {
+            activeGrammarData = allGrammarData.filter(grammar => {
+                const stats = grammarStats[grammar.id];
+                if (!stats || stats.total <= 5) {
+                    return true; // Keep if not practiced enough
+                }
+                const correctRate = stats.correct / stats.total;
+                if (correctRate <= 0.9) {
+                    return true; // Keep if accuracy is not high
+                }
+                return false; // Hide if accuracy > 90% and total > 5
+            });
+        } else {
+            // For other modes, use all data
+            activeGrammarData = [...allGrammarData];
         }
     }
 
@@ -55,6 +77,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         selectedMeaning = null;
         hideSelectionBubble();
 
+        if (activeGrammarData.length === 0) {
+            cardBoard.innerHTML = `<p class="completion-message">Không có ngữ pháp nào phù hợp với chế độ này, hoặc bạn đã học hết rồi!</p>`;
+            updateProgressCounter();
+            return;
+        }
         const gameData = shuffle([...activeGrammarData]);
         totalPairs = gameData.length;
         
@@ -144,6 +171,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Multiple Choice Game
     function setupMultipleChoiceGame() {
+        applyGameModeFilter(); // Apply filter before setting up
+        if (activeGrammarData.length === 0) {
+            questionArea.innerHTML = `<p class="completion-message">Không có ngữ pháp nào phù hợp với chế độ này, hoặc bạn đã học hết rồi!</p>`;
+            answersArea.innerHTML = '';
+            updateMCProgressBar();
+            return;
+        }
         questionQueue = shuffle([...activeGrammarData]);
         mcTotalQuestions = questionQueue.length;
         hideSelectionBubble();
@@ -308,19 +342,23 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
-        if (currentMode === 'pair-match') {
+        applyGameModeFilter();
+
+        if (currentMode === 'pair-match' || currentMode === 'practice-weak-points') {
             pairMatchContainer.style.display = 'block';
             multipleChoiceContainer.style.display = 'none';
             setupPairMatchingGame();
         } else {
-            pairMatchContainer.style.display = 'none';
+            pairMatchContainer.style.display = 'none'; // Should be multiple-choice
             multipleChoiceContainer.style.display = 'block';
             setupMultipleChoiceGame();
         }
     }
 
     function isGameInProgress() {
-        return currentMode === 'pair-match' && correctPairs > 0 && correctPairs < totalPairs;
+        const gameMode = document.querySelector('input[name="game-mode"]:checked')?.value;
+        const isPairMatchBased = gameMode === 'pair-match' || gameMode === 'practice-weak-points';
+        return isPairMatchBased && correctPairs > 0 && correctPairs < totalPairs;
     }
 
     // Event Listeners

@@ -117,7 +117,7 @@
             <!-- Step 3: Pair Match -->
             <div id="ql-step3-match" class="ql-step-container">
               <div id="ql-match-board" class="flashcard-area"></div>
-              <button id="ql-match-hint-btn" style="margin-top: 15px;">Hint</button>
+              <button id="ql-match-hint-btn" class="btn btn-primary" style="margin-top: 15px;">Hint</button>
             </div>
 
             <!-- Step 4: Fill Blank -->
@@ -129,11 +129,14 @@
               <span id="ql-fill-stats"
                 style="font-size: 0.9em; color: #666; margin-left: 10px;"></span>
               <p id="ql-fill-result"></p>
-              <button id="ql-fill-hint-btn">Hint</button>
-              <button id="ql-skip-btn">Skip & View Example</button>
+              <button id="ql-fill-hint-btn" class="btn btn-primary">Hint</button>
+              <button id="ql-skip-btn" class="btn btn-secondary">Skip & View Example</button>
             </div>
 
-            <button id="ql-next-btn" style="margin-top: 20px;">Next</button>
+            <div class="ql-navigation-buttons" style="margin-top: 20px; display: flex; gap: 10px; justify-content: flex-end;">
+              <button id="ql-exit-btn" class="btn btn-danger">Exit Session</button>
+              <button id="ql-next-btn">Next</button>
+            </div>
           </div>
         </section>
 

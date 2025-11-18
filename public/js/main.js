@@ -108,6 +108,7 @@ function initializeDOM() {
     qlProgressBar: document.getElementById('quick-learn-progress-bar'),
     qlStepTitle: document.getElementById('quick-learn-step-title'),
     qlNextBtn: document.getElementById('ql-next-btn'),
+    qlExitBtn: document.getElementById('ql-exit-btn'),
     qlStepContainers: document.querySelectorAll('.ql-step-container'),
     qlStep1View: document.getElementById('ql-step1-view'),
     qlStep2MC: document.getElementById('ql-step2-mc'),
@@ -367,7 +368,7 @@ async function saveGrammarChanges() {
   if (currentEditingId === 'new') {
     const isDuplicate = appGrammarData.some(g => g.structure.toLowerCase() === structure.toLowerCase());
     if (isDuplicate) {
-      showToast("Cấu trúc này đã tồn tại.", 'error');
+      showToast("This structure already exists.", 'error');
       return;
     }
 
@@ -547,6 +548,7 @@ function initializeQuickLearn() {
   dom.startQuickLearnBtn?.addEventListener('click', startLearnSession);
   dom.startNextSessionBtn?.addEventListener('click', startLearnSession);
   dom.qlNextBtn?.addEventListener('click', handleNextStep);
+  dom.qlExitBtn?.addEventListener('click', exitQuickLearnSession);
 }
 
 const quickLearnSteps = [
@@ -647,7 +649,7 @@ const quickLearnSteps = [
 
       input.oninput = () => handleFillInput(input, grammar, resultP, statsSpan);
       hintBtn.onclick = () => provideFillHint(input, grammar.structure);
-      skipBtn.onclick = () => handleSkipQuestion(grammar.id);
+      skipBtn.onclick = () => handleSkipQuestion(grammar.id, input, resultP);
 
       return dom.qlStep4Fill;
     }
@@ -746,6 +748,21 @@ function handleNextStep() {
   }
 }
 
+function exitQuickLearnSession() {
+  if (confirm("Bạn có chắc muốn thoát phiên học này? Tiến trình sẽ được lưu lại.")) {
+    // Don't clear the session from localStorage, just hide the UI
+    dom.quickLearnContainer.style.display = 'none';
+    
+    // Show the appropriate start button
+    if (learnedTodayIds.size > 0) {
+      dom.nextSessionOptions.style.display = 'block';
+    } else {
+      dom.startQuickLearnBtn.style.display = 'block';
+    }
+    showToast("Đã thoát phiên học. Bạn có thể tiếp tục sau.", 'info');
+  }
+}
+
 function completeQuickLearnSession() {
   qlNewItems.forEach(g => learningStatus[g.id] = 'learned');
   
@@ -792,13 +809,14 @@ function updateQuickLearnStats(grammarId, isCorrect) {
 function handleMCOptionClick(button, isCorrect, container, grammar) {
   container.querySelectorAll('button').forEach(b => b.disabled = true);
   
+  const correctButton = Array.from(container.querySelectorAll('button'))
+    .find(b => b.textContent === grammar.structure);
+
   if (isCorrect) {
-    button.classList.add('correct');
+    button.style.backgroundColor = 'green';
   } else {
     button.classList.add('incorrect');
-    Array.from(container.querySelectorAll('button'))
-      .find(b => b.textContent === grammar.structure)
-      ?.classList.add('correct');
+    if (correctButton) correctButton.style.backgroundColor = 'green';
   }
 
   updateQuickLearnStats(grammar.id, isCorrect);
@@ -912,7 +930,7 @@ function updateQLProgress() {
   const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
   
   dom.qlProgressBar.style.width = `${percentage}%`;
-  dom.qlProgressBar.textContent = `Tiến độ: ${completed}/${total}`;
+  dom.qlProgressBar.textContent = `Progress: ${completed}/${total}`;
 }
 
 // ============= UTILITY FUNCTIONS =============
