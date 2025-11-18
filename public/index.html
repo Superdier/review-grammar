@@ -7,9 +7,6 @@
     <link rel="stylesheet" href="css/style.css">
   </head>
   <body>
-    <!-- Toast Notification Container -->
-    <div id="toast-container"></div>
-
     <div class="container">
       <header>
         <h1>JLPT N2 Grammar Review System</h1>
@@ -20,21 +17,24 @@
         <a href="luyen-tap-vi-du.html">Practice Examples</a>
       </nav>
       <main>
-        <section class="file-upload-section">
-          <h2>Upload Word File</h2>
-          <p>Select a Word file containing your N2 grammar list.</p>
-          <input type="file" id="word-file-input" accept=".doc,.docx">
-          <div class="data-management-buttons">
-            <button id="export-json-btn">Export to JSON</button>
-            <label for="import-json-input" class="button-like-label">Import from
-              JSON</label>
-            <input type="file" id="import-json-input" accept=".json"
-              style="display: none;">
+        <section class="data-management-section">
+          <button id="toggle-import-section-btn" class="btn btn-secondary" style="margin-bottom: 1rem;">+ Import & Manage Data</button>
+          <div id="import-section-content" style="display: none; border: 1px solid #ddd; padding: 1rem; border-radius: 5px;">
+            <h2>Upload Word File</h2>
+            <p>Select a Word file containing your N2 grammar list.</p>
+            <div class="data-management-buttons">
+              <label for="word-file-input" class="btn btn-primary button-like-label">Upload from Word</label>
+              <input type="file" id="word-file-input" accept=".doc,.docx" style="display: none;">
+              <button id="export-json-btn">Export to JSON</button>
+              <label for="import-json-input" class="button-like-label">Import from
+                JSON</label>
+              <input type="file" id="import-json-input" accept=".json"
+                style="display: none;">
+            </div>
+            <div style="text-align: center; margin-top: 1rem;">
+              <button id="clear-storage-button" class="danger-button">Clear Saved Data & Reset</button>
+            </div>
           </div>
-          <button id="clear-storage-button" class="danger-button">Clear Saved
-            Data & Reset</button>
-          <p><small>(This feature is under development. Sample data is
-              pre-loaded.)</small></p>
         </section>
 
         <section id="quick-learn-section">
@@ -48,7 +48,7 @@
               style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
               <label for="daily-goal-input">Learn</label>
               <input type="number" id="daily-goal-input" value="5" min="1"
-                max="20" style="width: 60px;">
+                max="20" style="width: 60px;" class="form-control">
               <label for="daily-goal-input">grammar points.</label>
             </div>
             <div id="daily-goal-progress-display">
