@@ -36,7 +36,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // Randomly select a grammar point, then randomly select an example
         const randomGrammar = activeGrammarData[Math.floor(Math.random() * activeGrammarData.length)];
-        const randomExample = randomGrammar.examples[Math.floor(Math.random() * randomGrammar.examples.length)];
+        
+        // Filter for examples that have a Japanese sentence
+        const validExamples = randomGrammar.examples.filter(ex => ex.jp && ex.jp.trim() !== '');
+        if (validExamples.length === 0) {
+            // If no valid examples, try another grammar point
+            setTimeout(setupNewExercise, 100); // Avoid infinite loop on bad data
+            return;
+        }
+        const randomExample = validExamples[Math.floor(Math.random() * validExamples.length)];
         currentExample = { ...randomExample, grammarId: randomGrammar.id }; // Store grammarId with the example
 
         viSentenceEl.textContent = currentExample.vi;
@@ -75,20 +83,18 @@ document.addEventListener('DOMContentLoaded', async () => {
  * @returns {string[]} Mảng các mảnh câu (ít nhất 4 mảnh).
  */
 function smartSplit(sentence) {
-    // Đếm số dấu 。 trong câu
-    const dotCount = (sentence.match(/。/g) || []).length;
-    let hasSingleDot = false;
+    // Tách tất cả các dấu "。" ra trước
+    const dots = sentence.match(/。/g) || [];
     let processedSentence = sentence;
-    
-    // Nếu chỉ có 1 dấu 。, tách nó ra
-    if (dotCount === 1) {
-        hasSingleDot = true;
-        processedSentence = sentence.replace(/。$/, '');
+    if (dots.length > 0) {
+        // Thay thế tất cả dấu 。 bằng một ký tự đặc biệt để tách sau này,
+        // rồi loại bỏ chúng khỏi chuỗi xử lý chính.
+        processedSentence = sentence.replace(/。/g, '');
     }
     
     // Regex cải tiến để tách tiếng Nhật, giữ nguyên các cụm có dấu câu
     const regex = /[^、！？…]+[、！？…]*/g;
-    let initialParts = processedSentence.match(regex) || [processedSentence];
+    let initialParts = processedSentence.match(regex) || (processedSentence ? [processedSentence] : []);
     
     // Lọc bỏ các phần rỗng
     initialParts = initialParts.filter(part => part.length > 0);
@@ -104,8 +110,8 @@ function smartSplit(sentence) {
         const endsWithPunctuation = /[、！？…]$/.test(currentPiece);
         
         if (!endsWithPunctuation && i + 1 < initialParts.length) {
-            // Quyết định ngẫu nhiên có gộp với phần tiếp theo không (tỷ lệ 40%)
-            const shouldMerge = Math.random() < 0.4;
+            // Quyết định ngẫu nhiên có gộp với phần tiếp theo không (tỷ lệ 20%)
+            const shouldMerge = Math.random() < 0.2;
             
             if (shouldMerge) {
                 const nextPiece = initialParts[i + 1];
@@ -120,13 +126,30 @@ function smartSplit(sentence) {
         finalPieces.push(currentPiece);
     }
     
-    // Thêm dấu 。 riêng nếu ban đầu chỉ có 1 dấu
-    if (hasSingleDot) {
-        finalPieces.push('。');
-    }
-    
+    // Bước mới: Chia nhỏ các mảnh quá dài
+    const maxPieceLength = 10;
+    const resultWithSplits = [];
+    finalPieces.forEach(piece => {
+        if (piece.length > maxPieceLength && piece !== '。') {
+            // Nếu mảnh dài, chia nó làm đôi
+            const splitPoint = findNaturalSplitPoint(piece);
+            if (splitPoint > 0 && splitPoint < piece.length) {
+                resultWithSplits.push(piece.substring(0, splitPoint), piece.substring(splitPoint));
+            } else {
+                // Nếu không tìm thấy điểm chia tự nhiên, chia ở giữa
+                const midPoint = Math.floor(piece.length / 2);
+                resultWithSplits.push(piece.substring(0, midPoint), piece.substring(midPoint));
+            }
+        } else {
+            resultWithSplits.push(piece);
+        }
+    });
+
+    // Thêm lại các dấu "。" đã tách vào cuối
+    const finalResult = [...resultWithSplits, ...dots];
+
     // Đảm bảo có ít nhất 4 mảnh bằng cách chia nhỏ
-    return ensureMinimumPieces(finalPieces, 4);
+    return ensureMinimumPieces(finalResult, 6); // Tăng số mảnh tối thiểu lên 6
 }
 
 /**

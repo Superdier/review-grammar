@@ -47,7 +47,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     [appGrammarData, grammarStats, learningStatus, dailyGoalData] = 
       [data.appGrammarData, data.grammarStats, data.learningStatus, data.dailyGoal];
     
-    initializeHomePage();
+    // Only initialize the full homepage UI if we are on the main page
+    if (document.getElementById('grammar-ul')) {
+      initializeHomePage();
+    }
   } catch (error) {
     console.error("Initialization error:", error);
   } finally {
