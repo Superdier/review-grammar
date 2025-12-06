@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="vi">
   <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>JLPT N2 Grammar Review</title>
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/style.css" />
   </head>
   <body>
     <div class="container">
@@ -16,23 +16,53 @@
         <a href="hoc-ngu-phap.html">Learn Grammar</a>
         <a href="luyen-tap-vi-du.html">Practice Examples</a>
       </nav>
-      <main>
+      <main id="main-content">
         <section class="data-management-section">
-          <button id="toggle-import-section-btn" class="btn btn-secondary" style="margin-bottom: 1rem;">+ Import & Manage Data</button>
-          <div id="import-section-content" style="display: none; border: 1px solid #ddd; padding: 1rem; border-radius: 5px;">
+          <button
+            id="toggle-import-section-btn"
+            class="btn btn-secondary"
+            style="margin-bottom: 1rem"
+          >
+            + Import & Manage Data
+          </button>
+          <div
+            id="import-section-content"
+            style="
+              display: none;
+              border: 1px solid #ddd;
+              padding: 1rem;
+              border-radius: 5px;
+            "
+          >
             <h2>Upload Word File</h2>
             <p>Select a Word file containing your N2 grammar list.</p>
             <div class="data-management-buttons">
-              <label for="word-file-input" class="btn btn-primary button-like-label">Upload from Word</label>
-              <input type="file" id="word-file-input" accept=".doc,.docx" style="display: none;">
+              <label
+                for="word-file-input"
+                class="btn btn-primary button-like-label"
+                >Upload from Word</label
+              >
+              <input
+                type="file"
+                id="word-file-input"
+                accept=".doc,.docx"
+                style="display: none"
+              />
               <button id="export-json-btn">Export to JSON</button>
-              <label for="import-json-input" class="button-like-label">Import from
-                JSON</label>
-              <input type="file" id="import-json-input" accept=".json"
-                style="display: none;">
+              <label for="import-json-input" class="button-like-label"
+                >Import from JSON</label
+              >
+              <input
+                type="file"
+                id="import-json-input"
+                accept=".json"
+                style="display: none"
+              />
             </div>
-            <div style="text-align: center; margin-top: 1rem;">
-              <button id="clear-storage-button" class="danger-button">Clear Saved Data & Reset</button>
+            <div style="text-align: center; margin-top: 1rem">
+              <button id="clear-storage-button" class="danger-button">
+                Clear Saved Data & Reset
+              </button>
             </div>
           </div>
         </section>
@@ -41,61 +71,118 @@
           <h2>Quick Learn</h2>
 
           <!-- Daily Goal Tracker -->
-          <div id="daily-goal-tracker"
-            style="margin-bottom: 1.5rem; padding: 1rem; background: #fff; border: 1px solid #dee2e6; border-radius: 5px;">
+          <div
+            id="daily-goal-tracker"
+            style="
+              margin-bottom: 1.5rem;
+              padding: 1rem;
+              background: #fff;
+              border: 1px solid #dee2e6;
+              border-radius: 5px;
+            "
+          >
             <h4>Today's Goal</h4>
             <div
-              style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+              style="
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                margin-bottom: 10px;
+              "
+            >
               <label for="daily-goal-input">Learn</label>
-              <input type="number" id="daily-goal-input" value="5" min="1"
-                max="20" style="width: 60px;" class="form-control">
+              <input
+                type="number"
+                id="daily-goal-input"
+                value="5"
+                min="1"
+                max="20"
+                style="width: 60px"
+                class="form-control"
+              />
               <label for="daily-goal-input">grammar points.</label>
             </div>
             <div id="daily-goal-progress-display">
-              <span>Progress: <span id="learned-today-count">0</span> / <span
-                  id="daily-goal-target">5</span></span>
-              <div class="progress-bar-container" style="margin-top: 5px;">
-                <div id="daily-goal-progress-bar" class="progress-bar"
-                  style="background-color: #007bff;"></div>
+              <span
+                >Progress: <span id="learned-today-count">0</span> /
+                <span id="daily-goal-target">5</span></span
+              >
+              <div class="progress-bar-container" style="margin-top: 5px">
+                <div
+                  id="daily-goal-progress-bar"
+                  class="progress-bar"
+                  style="background-color: #007bff"
+                ></div>
               </div>
             </div>
             <!-- Learned Today List -->
-            <div id="learned-today-list-container"
-              style="margin-top: 10px; font-size: 0.9em;">
-              <p style="margin-bottom: 5px; font-weight: bold;">Learned
-                Today:</p>
-              <div id="learned-today-list"
-                style="display: flex; flex-wrap: wrap; gap: 5px;"></div>
+            <div
+              id="learned-today-list-container"
+              style="margin-top: 10px; font-size: 0.9em"
+            >
+              <p style="margin-bottom: 5px; font-weight: bold">
+                Learned Today:
+              </p>
+              <div
+                id="learned-today-list"
+                style="display: flex; flex-wrap: wrap; gap: 5px"
+              ></div>
             </div>
           </div>
 
-          <p>The system will randomly select grammar points you haven't learned or need to review. Complete
-            4 steps to mark an item as "Learned".</p>
+          <p>
+            The system will randomly select grammar points you haven't learned
+            or need to review. Complete 4 steps to mark an item as "Learned".
+          </p>
           <div class="quick-learn-settings">
             <label for="quick-learn-count">Grammar points per session:</label>
-            <input type="number" id="quick-learn-count" class="form-control"
-              value="5" min="5" max="20" style="width: 80px;">
+            <input
+              type="number"
+              id="quick-learn-count"
+              class="form-control"
+              value="5"
+              min="5"
+              max="20"
+              style="width: 80px"
+            />
           </div>
 
           <button id="start-quick-learn-btn">Start Quick Learn</button>
 
           <!-- Options for subsequent sessions -->
-          <div id="next-session-options"
-            style="display: none; margin-top: 1rem; padding: 1rem; border: 1px solid #ccc; border-radius: 5px;">
+          <div
+            id="next-session-options"
+            style="
+              display: none;
+              margin-top: 1rem;
+              padding: 1rem;
+              border: 1px solid #ccc;
+              border-radius: 5px;
+            "
+          >
             <h4>Next Session</h4>
             <div class="learn-mode-selection">
-              <label><input type="radio" name="learn-mode" value="new-only"
-                  checked> Learn new items only</label>
-              <br>
-              <label><input type="radio" name="learn-mode"
-                  value="review-and-new"> Review learned items & learn
-                new ones</label>
+              <label
+                ><input
+                  type="radio"
+                  name="learn-mode"
+                  value="new-only"
+                  checked
+                />
+                Learn new items only</label
+              >
+              <br />
+              <label
+                ><input type="radio" name="learn-mode" value="review-and-new" />
+                Review learned items & learn new ones</label
+              >
             </div>
-            <button id="start-next-session-btn" style="margin-top: 10px;">Start
-              Next Session</button>
+            <button id="start-next-session-btn" style="margin-top: 10px">
+              Start Next Session
+            </button>
           </div>
 
-          <div id="quick-learn-container" style="display: none;">
+          <div id="quick-learn-container" style="display: none">
             <div class="progress-bar-container">
               <div id="quick-learn-progress-bar" class="progress-bar"></div>
             </div>
@@ -110,31 +197,58 @@
 
             <!-- Step 2: Multiple Choice -->
             <div id="ql-step2-mc" class="ql-step-container">
-              <p><strong>Ý nghĩa:</strong></p><p id="ql-mc-meaning"></p>
+              <p><strong>Ý nghĩa:</strong></p>
+              <p id="ql-mc-meaning"></p>
               <div id="ql-mc-options"></div>
             </div>
 
             <!-- Step 3: Pair Match -->
             <div id="ql-step3-match" class="ql-step-container">
               <div id="ql-match-board" class="flashcard-area"></div>
-              <button id="ql-match-hint-btn" class="btn btn-primary" style="margin-top: 15px;">Hint</button>
+              <button
+                id="ql-match-hint-btn"
+                class="btn btn-primary"
+                style="margin-top: 15px"
+              >
+                Hint
+              </button>
             </div>
 
             <!-- Step 4: Fill Blank -->
             <div id="ql-step4-fill" class="ql-step-container">
               <p><strong>Meaning:</strong></p>
               <p id="ql-fill-meaning"></p>
-              <input type="text" id="ql-fill-input" class="form-control"
-                placeholder="Enter the grammar structure...">
-              <span id="ql-fill-stats"
-                style="font-size: 0.9em; color: #666; margin-left: 10px;"></span>
+              <input
+                type="text"
+                id="ql-fill-input"
+                class="form-control"
+                placeholder="Enter the grammar structure..."
+              />
+              <span
+                id="ql-fill-stats"
+                style="font-size: 0.9em; color: #666; margin-left: 10px"
+              ></span>
               <p id="ql-fill-result"></p>
-              <button id="ql-fill-hint-btn" class="btn btn-primary">Hint</button>
-              <button id="ql-skip-btn" class="btn btn-secondary">Skip & View Example</button>
+              <button id="ql-fill-hint-btn" class="btn btn-primary">
+                Hint
+              </button>
+              <button id="ql-skip-btn" class="btn btn-secondary">
+                Skip & View Example
+              </button>
             </div>
 
-            <div class="ql-navigation-buttons" style="margin-top: 20px; display: flex; gap: 10px; justify-content: flex-end;">
-              <button id="ql-exit-btn" class="btn btn-danger">Exit Session</button>
+            <div
+              class="ql-navigation-buttons"
+              style="
+                margin-top: 20px;
+                display: flex;
+                gap: 10px;
+                justify-content: flex-end;
+              "
+            >
+              <button id="ql-exit-btn" class="btn btn-danger">
+                Exit Session
+              </button>
               <button id="ql-next-btn">Next</button>
             </div>
           </div>
@@ -144,7 +258,12 @@
           <div class="list-header">
             <h2>Grammar List</h2>
             <div class="list-header-actions">
-              <input type="text" id="search-input" class="form-control" placeholder="Find grammar...">
+              <input
+                type="text"
+                id="search-input"
+                class="form-control"
+                placeholder="Find grammar..."
+              />
               <select id="filter-status" class="form-control">
                 <option value="all">Filter: All</option>
                 <option value="unlearned">Filter: Unlearned</option>
@@ -152,12 +271,15 @@
                 <option value="review">Filter: Review</option>
               </select>
               <select id="sort-options" class="form-control">
-                <option value="default">Sort: Default</option>
+                <option value="oldest">Sort: Oldest</option>
+                <option value="newest">Sort: Newest</option>
                 <option value="az">Sort: A-Z</option>
                 <option value="za">Sort: Z-A</option>
               </select>
-              <button id="add-new-grammar-btn" class="primary-button">Add
-                New</button>
+
+              <button id="add-new-grammar-btn" class="primary-button">
+                Add New
+              </button>
             </div>
           </div>
           <ul id="grammar-ul">
@@ -181,9 +303,11 @@
           <div id="modal-view-mode">
             <p><strong>Meaning:</strong></p>
             <p id="modal-meaning"></p>
-            <p><strong>Correct Match Rate:</strong> <span
-                id="modal-stats"></span></p>
-            <hr>
+            <p>
+              <strong>Correct Match Rate:</strong>
+              <span id="modal-stats"></span>
+            </p>
+            <hr />
             <p><strong>Explanation:</strong></p>
             <p id="modal-explanation"></p>
             <p><strong>Examples:</strong></p>
@@ -193,31 +317,46 @@
           </div>
 
           <!-- Edit Mode (hidden by default) -->
-          <div id="modal-edit-mode" style="display: none;">
+          <div id="modal-edit-mode" style="display: none">
             <div class="form-group">
               <label for="modal-edit-structure">Structure:</label>
-              <input type="text" id="modal-edit-structure" class="form-control">
+              <input
+                type="text"
+                id="modal-edit-structure"
+                class="form-control"
+              />
             </div>
             <div class="form-group">
               <label for="modal-edit-meaning">Meaning:</label>
-              <input type="text" id="modal-edit-meaning" class="form-control">
+              <input type="text" id="modal-edit-meaning" class="form-control" />
             </div>
             <div class="form-group">
               <label for="modal-edit-explanation">Explanation:</label>
-              <textarea id="modal-edit-explanation" class="form-control"
-                rows="3"></textarea>
+              <textarea
+                id="modal-edit-explanation"
+                class="form-control"
+                rows="3"
+              ></textarea>
             </div>
             <div class="form-group">
               <label for="modal-edit-examples">Examples:</label>
-              <textarea id="modal-edit-examples" class="form-control"
-                rows="5"></textarea>
-              <small>Each example has 2 lines (Japanese, Vietnamese). Separate examples with
-                ---</small>
+              <textarea
+                id="modal-edit-examples"
+                class="form-control"
+                rows="5"
+              ></textarea>
+              <small
+                >Each example has 2 lines (Japanese, Vietnamese). Separate
+                examples with ---</small
+              >
             </div>
             <div class="form-group">
               <label for="modal-edit-note">Note:</label>
-              <textarea id="modal-edit-note" class="form-control"
-                rows="2"></textarea>
+              <textarea
+                id="modal-edit-note"
+                class="form-control"
+                rows="2"
+              ></textarea>
             </div>
           </div>
         </div>
@@ -225,15 +364,15 @@
         <div class="modal-footer">
           <button id="modal-edit-btn">Edit</button>
           <button id="modal-delete-btn" class="danger-button">Delete</button>
-          <button id="modal-save-btn" class="primary-button">Save
-            Changes</button>
+          <button id="modal-save-btn" class="primary-button">
+            Save Changes
+          </button>
           <button id="modal-cancel-btn">Cancel</button>
         </div>
       </div>
     </div>
 
-    <script
-      src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
     <script type="module" src="js/main.js"></script>
 
     <!-- Scroll to top button -->
