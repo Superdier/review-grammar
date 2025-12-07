@@ -22,23 +22,37 @@
         <!-- Pop-up for completion message -->
         <div id="completion-message-popup" class="completion-popup"></div>
 
-        <div class="mode-selection">
-          <strong>Select learning mode:</strong>
-          <label
-            ><input type="radio" name="game-mode" value="pair-match" checked />
-            Random Pair Match</label
-          >
-          <label
-            ><input type="radio" name="game-mode" value="multiple-choice" />
-            Multiple Choice</label
-          >
-          <input
-            type="radio"
-            id="practice-weak-points-mode"
-            name="game-mode"
-            value="practice-weak-points"
-          />
-          <label for="practice-weak-points-mode">Hide strong points</label>
+        <div class="game-controls">
+          <div class="control-group">
+            <strong>Chế độ:</strong>
+            <label
+              ><input
+                type="radio"
+                name="game-mode"
+                value="pair-match"
+                checked
+              />
+              Ghép cặp</label>
+            <label class="sub-option"
+              ><input type="checkbox" id="practice-weak-points-checkbox" /> Chỉ
+              luyện điểm yếu</label
+            >
+            <label
+              ><input type="radio" name="game-mode" value="multiple-choice" />
+              Trắc nghiệm</label
+            >
+          </div>
+          <div class="control-group">
+            <label for="level-filter">Level:</label>
+            <select id="level-filter" class="form-control">
+              <!-- Options will be populated by JS -->
+            </select>
+          </div>
+          <div class="control-group">
+            <button id="reset-button" class="btn btn-primary">
+              Bắt đầu / Làm mới
+            </button>
+          </div>
         </div>
 
         <!-- Mode 1: Pair Match -->
@@ -67,14 +81,6 @@
           <div id="question-area"></div>
           <div id="answers-area"></div>
         </div>
-
-        <button
-          id="reset-button"
-          class="btn btn-primary"
-          style="margin-top: 20px"
-        >
-          Restart / New Set
-        </button>
       </main>
     </div>
     <script type="module" src="js/hoc-ngu-phap.js"></script>

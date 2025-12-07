@@ -26,6 +26,7 @@ Tệp JSON phải là một mảng (array) các đối tượng (object), mỗi 
 [
   {
     "id": "1",
+    "level": "N2",
     "structure": "～ことにする",
     "meaning": "Quyết định làm (không làm) gì đó",
     "explanation": "Dùng để thể hiện ý chủ động quyết định sẽ làm / không làm gì của người nói.",

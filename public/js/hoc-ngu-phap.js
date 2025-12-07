@@ -13,7 +13,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const answersArea = document.getElementById('answers-area');
     const hideCorrectCheckbox = document.getElementById('hide-correct-pairs-checkbox');
     const selectionBubble = document.getElementById('selection-bubble');
+    const weakPointsCheckbox = document.getElementById('practice-weak-points-checkbox');
     const mcProgressBar = document.getElementById('mc-progress-bar');
+    const levelFilter = document.getElementById('level-filter');
     const pairMatchProgress = document.getElementById('pair-match-progress');
     const completionPopup = document.getElementById('completion-message-popup');
 
@@ -41,6 +43,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             activeGrammarData = [...allGrammarData]; // Start with all data
             grammarStats = data.grammarStats;
             learningStatus = data.learningStatus;
+            populateLevelFilter();
             setupGame();
             if (loadingOverlay) loadingOverlay.classList.add('hidden');
         } catch (error) {
@@ -51,22 +54,52 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function applyGameModeFilter() {
         const gameMode = document.querySelector('input[name="game-mode"]:checked')?.value || 'pair-match';
-        if (gameMode === 'practice-weak-points') {
-            activeGrammarData = allGrammarData.filter(grammar => {
+        const practiceWeakPoints = weakPointsCheckbox?.checked && gameMode === 'pair-match';
+        const selectedLevel = levelFilter?.value || 'all';
+        let filteredData = [...allGrammarData];
+
+        // 1. Filter by Level
+        if (selectedLevel !== 'all') {
+            filteredData = filteredData.filter(g => g.level === selectedLevel);
+        }
+
+        // 2. Filter by Weak Points if checkbox is checked for pair-match mode
+        if (practiceWeakPoints) {
+            filteredData = filteredData.filter(grammar => {
                 const stats = grammarStats[grammar.id];
                 if (!stats || stats.total <= 5) {
                     return true; // Keep if not practiced enough
                 }
                 const correctRate = stats.correct / stats.total;
-                if (correctRate <= 0.9) {
+                if (correctRate <= 0.8) { // Lọc các điểm yếu có độ chính xác <= 80%
                     return true; // Keep if accuracy is not high
                 }
                 return false; // Hide if accuracy > 90% and total > 5
             });
-        } else {
-            // For other modes, use all data
-            activeGrammarData = [...allGrammarData];
         }
+        
+        activeGrammarData = filteredData;
+    }
+
+    function populateLevelFilter() {
+        if (!levelFilter) return;
+    
+        const levels = new Set(allGrammarData.map(g => g.level).filter(Boolean));
+        const sortedLevels = Array.from(levels).sort();
+    
+        levelFilter.innerHTML = ""; // Clear existing options
+    
+        const allOption = document.createElement("option");
+        allOption.value = "all";
+        allOption.textContent = "Tất cả Level";
+        levelFilter.appendChild(allOption);
+    
+        sortedLevels.forEach(level => {
+            const option = document.createElement("option");
+            option.value = level;
+            option.textContent = level;
+            levelFilter.appendChild(option);
+        });
     }
 
     // Pair Matching Game
@@ -357,7 +390,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function isGameInProgress() {
         const gameMode = document.querySelector('input[name="game-mode"]:checked')?.value;
-        const isPairMatchBased = gameMode === 'pair-match' || gameMode === 'practice-weak-points';
+        const isPairMatchBased = gameMode === 'pair-match';
         return isPairMatchBased && correctPairs > 0 && correctPairs < totalPairs;
     }
 
@@ -368,6 +401,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             setupGame();
         });
     });
+
+    if (levelFilter) {
+        levelFilter.addEventListener('change', setupGame);
+    }
+
+    if (weakPointsCheckbox) {
+        weakPointsCheckbox.addEventListener('change', setupGame);
+    }
 
     resetButton.addEventListener('click', setupGame);
 

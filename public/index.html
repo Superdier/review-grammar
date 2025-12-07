@@ -145,6 +145,11 @@
               max="20"
               style="width: 80px"
             />
+            <label for="quick-learn-level-filter" style="margin-left: 15px"
+              >Level:</label
+            >
+            <select id="quick-learn-level-filter" class="form-control">
+            </select>
           </div>
 
           <button id="start-quick-learn-btn">Start Quick Learn</button>
@@ -269,6 +274,9 @@
                 <option value="unlearned">Filter: Unlearned</option>
                 <option value="learned">Filter: Learned</option>
                 <option value="review">Filter: Review</option>
+                <option value="level-n1">Filter: N1</option>
+                <option value="level-n2">Filter: N2</option>
+                <option value="level-n3">Filter: N3</option>
               </select>
               <select id="sort-options" class="form-control">
                 <option value="oldest">Sort: Oldest</option>
@@ -309,6 +317,7 @@
             </p>
             <hr />
             <p><strong>Explanation:</strong></p>
+            <p><strong>Level:</strong> <span id="modal-level"></span></p>
             <p id="modal-explanation"></p>
             <p><strong>Examples:</strong></p>
             <ul id="modal-examples"></ul>
@@ -329,6 +338,15 @@
             <div class="form-group">
               <label for="modal-edit-meaning">Meaning:</label>
               <input type="text" id="modal-edit-meaning" class="form-control" />
+            </div>
+            <div class="form-group">
+              <label for="modal-edit-level">Level:</label>
+              <input
+                type="text"
+                id="modal-edit-level"
+                class="form-control"
+                placeholder="e.g., N2, N1"
+              />
             </div>
             <div class="form-group">
               <label for="modal-edit-explanation">Explanation:</label>

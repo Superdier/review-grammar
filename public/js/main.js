@@ -83,6 +83,7 @@ function initializeHomePage() {
   initializeDailyGoal();
   initializeQuickLearn();
   setupEventListeners();
+  populateQuickLearnLevelFilter();
 
   applyFiltersAndSort();
   loadAndDisplayDailyGoal();
@@ -125,6 +126,9 @@ function initializeDOM() {
     startQuickLearnBtn: document.getElementById("start-quick-learn-btn"),
     nextSessionOptions: document.getElementById("next-session-options"),
     startNextSessionBtn: document.getElementById("start-next-session-btn"),
+    quickLearnLevelFilter: document.getElementById(
+      "quick-learn-level-filter"
+    ),
     quickLearnContainer: document.getElementById("quick-learn-container"),
     qlProgressBar: document.getElementById("quick-learn-progress-bar"),
     qlStepTitle: document.getElementById("quick-learn-step-title"),
@@ -523,6 +527,7 @@ function showGrammarDetails(grammarId) {
   currentEditingId = grammarId;
 
   // Populate view mode
+  document.getElementById("modal-level").textContent = grammar.level || "N/A";
   document.getElementById("modal-structure").textContent = grammar.structure;
   document.getElementById("modal-meaning").textContent = grammar.meaning;
   document.getElementById("modal-explanation").textContent =
@@ -552,6 +557,7 @@ function showGrammarDetails(grammarId) {
     .join("");
 
   // Populate edit mode
+  document.getElementById("modal-edit-level").value = grammar.level || "";
   document.getElementById("modal-edit-structure").value = grammar.structure;
   document.getElementById("modal-edit-meaning").value = grammar.meaning;
   document.getElementById("modal-edit-explanation").value = grammar.explanation;
@@ -574,6 +580,7 @@ function openModalForNewGrammar() {
     "modal-edit-meaning",
     "modal-edit-explanation",
     "modal-edit-note",
+    "modal-edit-level",
     "modal-edit-examples",
   ].forEach((id) => (document.getElementById(id).value = ""));
 
@@ -621,6 +628,7 @@ async function saveGrammarChanges() {
     .getElementById("modal-edit-explanation")
     .value.trim();
   const note = document.getElementById("modal-edit-note").value.trim();
+  let level = document.getElementById("modal-edit-level").value.trim();
   const examplesText = document.getElementById("modal-edit-examples").value;
 
   if (!structure || !meaning) {
@@ -653,12 +661,23 @@ async function saveGrammarChanges() {
       return;
     }
 
+    // Nếu đang thêm mới và level bị bỏ trống, hiện popup hỏi
+    if (!level) {
+      const promptedLevel = prompt("Vui lòng nhập level (ví dụ: N1, N2, N3):");
+      if (promptedLevel && promptedLevel.trim() !== "") {
+        level = promptedLevel.trim().toUpperCase();
+      } else {
+        showToast("Thao tác đã bị hủy. Level là thông tin bắt buộc.", "error");
+        return; // Dừng lại nếu người dùng không nhập level
+      }
+    }
     const newId = String(
       (Math.max(...appGrammarData.map((g) => Number(g.id) || 0)) || 0) + 1
     );
     const newGrammar = {
       id: newId,
       structure,
+      level,
       meaning,
       explanation,
       note,
@@ -674,6 +693,7 @@ async function saveGrammarChanges() {
       const updatedGrammar = {
         ...appGrammarData[mainIndex],
         structure,
+        level,
         meaning,
         explanation,
         note,
@@ -753,8 +773,13 @@ function applyFiltersAndSort() {
       if (filterValue === "learned") return status === "learned";
       if (filterValue === "review") return status === "review";
       return !status;
-    });
-  }
+    });}
+    else if (filterValue.startsWith("level-")) {
+      const level = filterValue.replace("level-", "").toUpperCase();
+      filtered = filtered.filter((g) => g.level && g.level.toUpperCase() === level
+      );
+    }
+  
 
   // Sort
   const sortBy = dom.sortOptions?.value || "oldest";
@@ -796,9 +821,12 @@ function renderGrammarList(data, searchTerm = "") {
     };
     const structureHTML = highlight(g.structure, searchTerm);
     const meaningHTML = highlight(g.meaning, searchTerm);
+    const levelBadge = g.level
+      ? ` <span class="badge level-badge">${g.level}</span>`
+      : "";
     const status = learningStatus[g.id];
     const badge = status
-      ? ` <span class="badge ${status}">${
+      ? ` <span class="badge status-badge ${status}">${
           status === "learned" ? "Learned" : "Review"
         }</span>`
       : "";
@@ -887,7 +915,7 @@ function updateDailyGoalProgress() {
     if (learnedItems.length > 0) {
       learnedItems.forEach((g) => {
         const badge = document.createElement("span");
-        badge.className = "badge learned";
+        badge.className = "badge status-badge learned";
         badge.style.cursor = "pointer";
         badge.textContent = g.structure;
         badge.dataset.grammarId = g.id;
@@ -1049,12 +1077,32 @@ function startLearnSession() {
     "new-only";
   qlIsReviewSession = mode === "review-and-new";
   const count =
-    parseInt(document.getElementById("quick-learn-count")?.value, 10) || 1;
+    parseInt(dom.quickLearnCount?.value, 10) ||
+    parseInt(document.getElementById("quick-learn-count")?.value, 10) ||
+    1;
 
-  const unlearned = appGrammarData.filter(
+  // Lọc dữ liệu theo level đã chọn
+  const selectedLevel = dom.quickLearnLevelFilter.value;
+  let sourceData = appGrammarData;
+
+  if (selectedLevel !== "all") {
+    if (selectedLevel === "unclassified") {
+      sourceData = appGrammarData.filter((g) => !g.level);
+    } else {
+      sourceData = appGrammarData.filter(
+        (g) => g.level && g.level.toUpperCase() === selectedLevel.toUpperCase()
+      );
+    }
+  }
+
+  if (sourceData.length === 0) {
+    showToast("Không có ngữ pháp nào cho level đã chọn.", "info");
+    return;
+  }
+
+  const unlearned = sourceData.filter(
     (g) => learningStatus[g.id] !== "learned" && !learnedTodayIds.has(g.id)
   );
-
   const review = shuffle(
     unlearned.filter((g) => learningStatus[g.id] === "review")
   );
@@ -1065,7 +1113,7 @@ function startLearnSession() {
 
   if (qlIsReviewSession) {
     const learnedToday = Array.from(learnedTodayIds)
-      .map((id) => appGrammarData.find((g) => g.id === id))
+      .map((id) => sourceData.find((g) => g.id === id))
       .filter(Boolean);
 
     const unique = new Set();
@@ -1079,7 +1127,7 @@ function startLearnSession() {
   }
 
   if (qlSessionData.length === 0) {
-    showToast("Congratulations! You've finished.", "success");
+    showToast("Chúc mừng! Bạn đã học hết các mục trong phần này.", "success");
     return;
   }
 
@@ -1461,6 +1509,27 @@ function getValidAnswers(structureString) {
     answers.add(normalizeAnswerString(match[2]));
   }
   return Array.from(answers).filter(Boolean);
+}
+
+function populateQuickLearnLevelFilter() {
+  if (!dom.quickLearnLevelFilter) return;
+
+  const levels = new Set(appGrammarData.map((g) => g.level).filter(Boolean));
+  const sortedLevels = Array.from(levels).sort();
+
+  dom.quickLearnLevelFilter.innerHTML = ""; // Clear existing options
+
+  const allOption = document.createElement("option");
+  allOption.value = "all";
+  allOption.textContent = "Tất cả Level";
+  dom.quickLearnLevelFilter.appendChild(allOption);
+
+  sortedLevels.forEach((level) => {
+    const option = document.createElement("option");
+    option.value = level;
+    option.textContent = level;
+    dom.quickLearnLevelFilter.appendChild(option);
+  });
 }
 
 // ============= WORD FILE PARSING =============
